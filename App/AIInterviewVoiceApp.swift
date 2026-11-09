@@ -1,12 +1,10 @@
 import SwiftUI
 
-/// AI Interview Voice Coach — v1.1.0 build 4, bundle com.shaik.aiinterviewvoice, iOS 16+.
+/// AI Interview Voice Coach — v1.2.0 build 6, bundle com.shaik.aiinterviewvoice, iOS 16+.
 /// v1.1 adds video body observation (front camera + Vision pose, on-device only).
-/// Build 4 fix: renamed the `body` service property to `bodyService` — it
-/// collided with SwiftUI View's `body` and broke run #3's build.
-/// Build 5 fix: Vision has no `.head` joint (run #4 failed on it) — use
-/// `.nose` for head position, and capture the camera session locally before
-/// starting it on a background queue.
+/// v1.2 adds the correct-me loop: live body correction banner while answering,
+/// one combined spoken correction (answer + body), and the same question asked
+/// again after a wrong answer.
 /// Real human-voice interviewer asks AI Engineer questions, the user answers by
 /// speaking, wrong/partial answers are corrected by voice, and every answer gets
 /// an English-accuracy score (fillers, grammar, pace) + a content score.
