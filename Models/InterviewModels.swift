@@ -75,6 +75,23 @@ struct Evaluation: Codable, Identifiable {
         copy.bodyTips = result.tips
         return copy
     }
+    /// v1.2: ONE spoken correction script — answer correction + body tips
+    /// in a single utterance. (v1.1 spoke the body tip with a second speak()
+    /// call, which cancelled the answer correction mid-sentence.)
+    func spokenCorrection() -> String {
+        if overallScore >= 80 {
+            var good = "Good answer. \(englishTips.first ?? "")"
+            if let bs = bodyScore, bs < 70, let tips = bodyTips, !tips.isEmpty {
+                good += " Body language: \(tips.prefix(2).joined(separator: " "))"
+            }
+            return good
+        }
+        var script = "Your answer was \(verdict). \(correctedAnswer)"
+        if let bs = bodyScore, bs < 70, let tips = bodyTips, !tips.isEmpty {
+            script += " Body language: \(tips.prefix(2).joined(separator: " "))"
+        }
+        return script
+    }
     var overallLabel: String {
         switch overallScore { case 80...100: return "Strong — interview ready"
         case 60..<80: return "Good — polish a little"
