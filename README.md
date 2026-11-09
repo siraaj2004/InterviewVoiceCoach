@@ -33,12 +33,13 @@ bash scripts/package-unsigned-ipa.sh
 ```
 
 ## Tech
-SwiftUI, iOS 16+, `AVSpeechSynthesizer` (TTS), `SFSpeechRecognizer` + `AVAudioEngine` (STT), on-device keyword + English-heuristics evaluation in `Services/EvaluationEngine.swift`, front camera + Vision human-body pose in `Services/BodyLanguageService.swift`. Tests in `Tests/` — 59-question bank check + scoring checks + body-result checks (10 tests).
+SwiftUI, iOS 16+, `AVSpeechSynthesizer` (TTS), `SFSpeechRecognizer` + `AVAudioEngine` (STT), on-device keyword + English-heuristics evaluation in `Services/EvaluationEngine.swift`, front camera + Vision human-body pose in `Services/BodyLanguageService.swift`. Tests in `Tests/` — 59-question bank check + scoring checks + body-result checks + correct-me-loop checks + camera switch checks (15 tests).
 
 ## Versions
 - v1.0.0 build 2 — voice interviewer, spoken answers, voice correction, English check. Run #1 failed on iOS 17-only `AVAudioApplication` (fixed to `AVAudioSession` in build 2); run #2 succeeded.
 - v1.1.0 build 5 — adds video body observation. Runs #3/#4 failed (SwiftUI `body` name collision; Vision has no `.head` joint — use `.nose`); run #5 succeeded, 10 tests.
-- v1.2.0 build 6 — correct-me loop (this version): live body correction banner while answering (on screen only — speaking live would be heard by the mic), one combined spoken correction (answer + body, fixing v1.1's double-speak cut-off), and the same question asked again after a wrong answer (toggle in Settings, on by default).
+- v1.2.0 build 6 — correct-me loop: live body correction banner while answering (on screen only — speaking live would be heard by the mic), one combined spoken correction (answer + body, fixing v1.1's double-speak cut-off), and the same question asked again after a wrong answer (toggle in Settings, on by default). Phone-proven 2026-11-09: Video tab badges + 33/100 + tips all showed on shaik's iPhone — but the camera preview was black (2/136 frames with a person visible), so v1.3 fixes it.
+- v1.3.0 build 7 (this version) — camera preview fix + front/back switch: the preview layer is now the view's own layer so the camera is actually visible; a "Switch camera" button (front ↔ back, mirrored preview for the front camera) in the Video tab and in the Interview answer card; a plain red message when the camera is off or unavailable instead of a black screen; the workflow test step now tries the iPhone 17 simulator first (run #6 ran 0 tests — the runner has no iPhone 16/15).
 
 ## Limits, stated plainly
 - Swift is **not compiled on Linux** — the IPA is only real after the GitHub Actions run succeeds and its contents are verified. No IPA is claimed before that.
