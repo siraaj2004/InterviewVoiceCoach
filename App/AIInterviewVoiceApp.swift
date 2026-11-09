@@ -8,6 +8,9 @@ import SwiftUI
 /// v1.3 fixes the black camera preview (preview layer is now the view's own
 /// layer) and adds a front/back camera switch + a plain message when the
 /// camera cannot start.
+/// v1.4 makes the Video tab camera full-screen (front or back, switchable),
+/// with badges on top and controls in a translucent bottom panel, and
+/// starts observation as soon as the tab opens.
 /// Real human-voice interviewer asks AI Engineer questions, the user answers by
 /// speaking, wrong/partial answers are corrected by voice, and every answer gets
 /// an English-accuracy score (fillers, grammar, pace) + a content score.
