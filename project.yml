@@ -1,0 +1,44 @@
+name: AIInterviewVoice
+options:
+  bundleIdPrefix: com.shaik
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+targets:
+  AIInterviewVoice:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: App
+      - path: Models
+      - path: Services
+      - path: Views
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.shaik.aiinterviewvoice
+        PRODUCT_NAME: AIInterviewVoice
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+    scheme:
+      testTargets: [AIInterviewVoiceTests]
+  AIInterviewVoiceTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: AIInterviewVoice
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.shaik.aiinterviewvoice.tests
+        GENERATE_INFOPLIST_FILE: "YES"
