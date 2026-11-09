@@ -10,8 +10,9 @@ Real-time voice interview practice for AI Engineer jobs, on iPhone.
 5. **59 questions, 10 topics** — Python, SQL, Maths for AI, ML, Deep Learning, GenAI, AI Agents, MLOps, Coding, HR. Same bank as the daily interview practice.
 6. **Modes** — Practice (one by one, shuffled) and Mock Interview (5 random questions).
 7. **History** — overall / content / English averages, strongest and weakest topic, every answer with its correction to replay.
+8. **Video body observation (v1.1)** — the front camera watches while you answer: posture (upright / slouched), eyes (looking at camera / away), movement (calm / fidgety), and how much of the answer you were visible. A Body score /100 with tips appears in the result card, in History, and as a spoken tip when it is below 70. A standalone Video tab lets you check body language on its own. On-device Vision only — no video is recorded, saved or uploaded. If the camera cannot see you, it says so instead of giving a fake score. It cannot judge confidence or answer quality, only what the camera sees.
 
-No account, no server, no upload. Microphone + Speech Recognition are used only while you answer. History stays on the phone.
+No account, no server, no upload. Microphone + Speech Recognition are used only while you answer, camera only while the video check is on. History stays on the phone.
 
 ## Most human voice
 iPhone Settings → Accessibility → Spoken Content → Voices → English (US) → download an **Enhanced** voice. Then in the app: Settings → Voice → pick it.
@@ -32,7 +33,11 @@ bash scripts/package-unsigned-ipa.sh
 ```
 
 ## Tech
-SwiftUI, iOS 16+, `AVSpeechSynthesizer` (TTS), `SFSpeechRecognizer` + `AVAudioEngine` (STT), on-device keyword + English-heuristics evaluation in `Services/EvaluationEngine.swift`. Tests in `Tests/` — 59-question bank check + scoring checks.
+SwiftUI, iOS 16+, `AVSpeechSynthesizer` (TTS), `SFSpeechRecognizer` + `AVAudioEngine` (STT), on-device keyword + English-heuristics evaluation in `Services/EvaluationEngine.swift`, front camera + Vision human-body pose in `Services/BodyLanguageService.swift`. Tests in `Tests/` — 59-question bank check + scoring checks + body-result checks (10 tests).
+
+## Versions
+- v1.0.0 build 2 — voice interviewer, spoken answers, voice correction, English check. Run #1 failed on iOS 17-only `AVAudioApplication` (fixed to `AVAudioSession` in build 2); run #2 succeeded.
+- v1.1.0 build 3 — adds video body observation (this version).
 
 ## Limits, stated plainly
 - Swift is **not compiled on Linux** — the IPA is only real after the GitHub Actions run succeeds and its contents are verified. No IPA is claimed before that.
