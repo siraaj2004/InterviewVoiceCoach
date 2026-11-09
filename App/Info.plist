@@ -9,9 +9,9 @@
 	<key>CFBundleName</key>
 	<string>AIInterviewVoice</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>CFBundleExecutable</key>
 	<string>AIInterviewVoice</string>
 	<key>CFBundlePackageType</key>
@@ -34,6 +34,8 @@
 	<string>The interview coach needs the microphone so you can answer interview questions by speaking, and it can check your spoken English.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Your spoken answers are transcribed on your iPhone so the app can score your content and English and speak the correction back to you. Audio is not uploaded.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The interview coach uses the front camera only while you answer, to observe your posture, eye contact and movement and give body-language tips. No video is recorded, saved or uploaded.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

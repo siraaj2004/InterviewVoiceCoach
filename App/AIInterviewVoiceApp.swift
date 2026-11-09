@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// AI Interview Voice Coach — v1.0.0 build 2, bundle com.shaik.aiinterviewvoice, iOS 16+.
-/// Build 2 fix: AVAudioSession.requestRecordPermission (iOS 16) instead of
-/// AVAudioApplication (iOS 17+ only) — run #1 failed on that line.
+/// AI Interview Voice Coach — v1.1.0 build 3, bundle com.shaik.aiinterviewvoice, iOS 16+.
+/// v1.1 adds video body observation (front camera + Vision pose, on-device only).
 /// Real human-voice interviewer asks AI Engineer questions, the user answers by
 /// speaking, wrong/partial answers are corrected by voice, and every answer gets
 /// an English-accuracy score (fillers, grammar, pace) + a content score.
