@@ -10,6 +10,8 @@ struct ContentView: View {
                 .tabItem { Label("Home", systemImage: "house.fill") }
             InterviewView()
                 .tabItem { Label("Interview", systemImage: "mic.fill") }
+            VideoInterviewView()
+                .tabItem { Label("Video", systemImage: "video.fill") }
             HistoryView()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
             SettingsView()

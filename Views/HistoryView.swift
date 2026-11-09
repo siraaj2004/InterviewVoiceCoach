@@ -30,6 +30,9 @@ struct HistoryView: View {
                                     Text(ev.question).font(.subheadline.bold())
                                     Text("“\(ev.transcript)”").font(.subheadline).lineLimit(3)
                                     Text("\(ev.verdict) • English \(ev.englishScore)/100 • Content \(ev.contentScore)/100").font(.caption).foregroundColor(.secondary)
+                                    if let bs = ev.bodyScore {
+                                        Text("Body \(bs)/100 • \(ev.bodyPosture ?? "") • Eyes: \(ev.bodyEye ?? "") • \(ev.bodyMovement ?? "")").font(.caption).foregroundColor(.purple)
+                                    }
                                     Text(ev.date.formatted(date: .abbreviated, time: .shortened)).font(.caption2).foregroundColor(.secondary)
                                     HStack {
                                         Button("Hear correction") { speech.speak(ev.correctedAnswer) }.font(.caption)

@@ -3,6 +3,10 @@ import SwiftUI
 struct InterviewView: View {
     @EnvironmentObject private var store: InterviewStore
     @EnvironmentObject private var speech: SpeechService
+    // v1.1: video body observation (front camera + Vision, on-device only).
+    @StateObject private var body = BodyLanguageService()
+    @State private var videoBodyOn = true
+    @State private var lastBody: BodyLanguageResult?
 
     @State private var queue: [InterviewQuestion] = []
     @State private var index = 0
@@ -41,6 +45,9 @@ struct InterviewView: View {
             Picker("Mode", selection: $store.mode) {
                 ForEach(InterviewMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }.pickerStyle(.segmented)
+            Toggle("Video body check — watch posture, eyes & movement while you answer", isOn: $videoBodyOn)
+            Text("Front camera only, on this phone. No video is recorded, saved or uploaded.")
+                .font(.footnote).foregroundColor(.secondary)
             Text("\(QuestionBank.questions(for: store.selectedTopic).count) questions in this topic • \(store.mode == .mock ? "Mock: 5 random questions" : "Practice: go one by one, shuffled")")
                 .font(.footnote).foregroundColor(.secondary)
             Button { startSession() } label: {
@@ -81,6 +88,17 @@ struct InterviewView: View {
     private func answerCard(_ q: InterviewQuestion) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your answer — speak it").font(.headline)
+            if videoBodyOn && body.isObserving {
+                CameraPreview(session: body.captureSession)
+                    .frame(height: 170).cornerRadius(12)
+                HStack(spacing: 8) {
+                    Text("Posture: \(body.livePosture)").font(.caption.bold())
+                    Text("Eyes: \(body.liveEye)").font(.caption.bold())
+                    Text("Move: \(body.liveMovement)").font(.caption.bold())
+                }
+                Text(body.personVisible ? "Camera can see you — keep head and shoulders in frame." : "Camera cannot see you yet — sit in frame, good light on your face.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
             if speech.isListening {
                 Text(speech.liveTranscript.isEmpty ? "Listening… speak now" : speech.liveTranscript)
                     .font(.body).padding().frame(maxWidth: .infinity, alignment: .leading)
@@ -119,6 +137,15 @@ struct InterviewView: View {
                 ScoreRing(label: "Overall", score: ev.overallScore, color: .blue)
                 ScoreRing(label: "Content", score: ev.contentScore, color: .green)
                 ScoreRing(label: "English", score: ev.englishScore, color: .orange)
+                if let bs = ev.bodyScore {
+                    ScoreRing(label: "Body", score: bs, color: .purple)
+                }
+            }
+            if let evBody = lastBody, ev.bodyScore != nil {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Body language — \(evBody.postureLabel) • Eyes: \(evBody.eyeLabel) • Movement: \(evBody.movementLabel) (\(evBody.personVisiblePercent)% visible)").font(.subheadline)
+                    ForEach(evBody.tips, id: \.self) { Text("• \($0)").font(.subheadline) }
+                }
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your answer (\(ev.transcript.split(separator: " ").count) words, \(ev.wordsPerMinute) words/min, \(ev.fillerCount) fillers)").font(.caption).foregroundColor(.secondary)
@@ -162,6 +189,7 @@ struct InterviewView: View {
     private func startListening() {
         speech.speechRate = Float(store.speechRate)
         speech.voiceIdentifier = store.selectedVoiceId
+        if videoBodyOn { body.start() }
         speech.startListening { _, _ in }
     }
     private func finishAnswer(for q: InterviewQuestion) {
@@ -171,7 +199,15 @@ struct InterviewView: View {
         // Real measured listen duration from SpeechService; fall back to a
         // 130 wpm pace estimate only if the measurement is missing.
         let duration = speech.lastListenDuration > 0 ? speech.lastListenDuration : Double(text.split(separator: " ").count) / 130 * 60
-        let ev = EvaluationEngine.evaluate(question: q, transcript: text, durationSeconds: duration)
+        var ev = EvaluationEngine.evaluate(question: q, transcript: text, durationSeconds: duration)
+        // v1.1: stop the camera observation and attach the body result.
+        if videoBodyOn {
+            let bodyResult = body.stop()
+            lastBody = bodyResult
+            ev = ev.withBody(bodyResult)
+        } else {
+            lastBody = nil
+        }
         store.add(ev)
         lastEvaluation = ev; showingResult = true; answeredCount += 1
         // Voice correction straight away when wrong / partial — the core ask.
@@ -180,10 +216,15 @@ struct InterviewView: View {
         } else {
             speech.speak("Good answer. \(ev.englishTips.first ?? "")")
         }
+        // Body tip by voice too, when the camera saw something to fix.
+        if let b = lastBody, b.bodyScore < 70, let tip = b.tips.first {
+            speech.speak("Body language: \(tip)")
+        }
     }
     private func nextQuestion() {
         speech.stopSpeaking()
-        showingResult = false; lastEvaluation = nil
+        if body.isObserving { _ = body.stop() }
+        showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
         if store.mode == .mock, answeredCount >= 5 { endSession(); return }
         if index + 1 < queue.count { index += 1 } else { rebuildQueue(); index = 0 }
@@ -195,7 +236,8 @@ struct InterviewView: View {
     }
     private func endSession() {
         speech.stopSpeaking(); speech.stopListening()
-        started = false; showingResult = false; lastEvaluation = nil
+        if body.isObserving { _ = body.stop() }
+        started = false; showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
         rebuildQueue()
     }
