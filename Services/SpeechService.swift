@@ -40,7 +40,9 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
                 self.permissionStatus = status == .authorized ? "Speech: allowed" : "Speech: \(status.rawValue) — allow in Settings"
             }
         }
-        AVAudioApplication.requestRecordPermission { _ in }
+        // iOS 16-compatible: AVAudioApplication.requestRecordPermission is iOS 17+ only
+        // and broke the iOS 16.0 build (run #1). AVAudioSession works on iOS 16.
+        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
     }
 
     static func availableVoices() -> [AVSpeechSynthesisVoice] {
@@ -79,12 +81,19 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         speakCompletion = nil
     }
 
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        isSpeaking = false
-        let cb = speakCompletion; speakCompletion = nil; cb?()
+    // Delegate methods are nonisolated (AVSpeechSynthesizerDelegate is not
+    // MainActor); hop back to the main actor to touch @Published state.
+    // This silences the main-actor warnings seen in run #1.
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            self.isSpeaking = false
+            let cb = self.speakCompletion; self.speakCompletion = nil; cb?()
+        }
     }
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        isSpeaking = false; speakCompletion = nil
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            self.isSpeaking = false; self.speakCompletion = nil
+        }
     }
 
     // MARK: Listen (user answer)
