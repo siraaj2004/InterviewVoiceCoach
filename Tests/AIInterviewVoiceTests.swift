@@ -90,12 +90,16 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertTrue(store.autoReaskAfterCorrection)
     }
     // v1.3 camera — no hardware needed for these.
+    // BodyLanguageService is @MainActor, so these tests must be too —
+    // run #7's test bundle failed to compile without this.
+    @MainActor
     func testDefaultCameraIsFront() {
         let service = BodyLanguageService()
         XCTAssertEqual(service.cameraPosition, .front)
         XCTAssertNil(service.cameraError)
         XCTAssertFalse(service.isObserving)
     }
+    @MainActor
     func testSwitchCameraTogglesPosition() {
         let service = BodyLanguageService()
         service.switchCamera()
