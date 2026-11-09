@@ -32,6 +32,10 @@ final class BodyLanguageService: NSObject, ObservableObject {
     @Published var liveEye = "—"
     @Published var liveMovement = "Calm"
     @Published var personVisible = false
+    // v1.3: front/back camera switch + a plain message when the camera
+    // cannot start, instead of a black preview.
+    @Published var cameraPosition: AVCaptureDevice.Position = .front
+    @Published var cameraError: String?
 
     private let session = AVCaptureSession()
     private var videoOutput = AVCaptureVideoDataOutput()
@@ -49,12 +53,31 @@ final class BodyLanguageService: NSObject, ObservableObject {
 
     func start() {
         guard !isObserving else { return }
+        cameraError = nil
+        // Camera permission first — a denied camera used to show a black
+        // preview with no explanation (v1.2 on shaik's phone).
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .denied, .restricted:
+            cameraError = "Camera is off — allow Camera for AI Interview Voice in iPhone Settings → Privacy & Security → Camera."
+            return
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                Task { @MainActor in
+                    if granted { self?.start() }
+                    else { self?.cameraError = "Camera is off — allow Camera for AI Interview Voice in iPhone Settings → Privacy & Security → Camera." }
+                }
+            }
+            return
+        default:
+            break
+        }
         session.beginConfiguration()
         session.sessionPreset = .medium
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
-              let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else { session.commitConfiguration(); return }
-        session.addInput(input)
+        guard configureCameraInput() else {
+            session.commitConfiguration()
+            cameraError = "Camera not available on this device."
+            return
+        }
         videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "body-language-vision"))
         videoOutput.alwaysDiscardsLateVideoFrames = true
         if session.canAddOutput(videoOutput) { session.addOutput(videoOutput) }
@@ -66,6 +89,38 @@ final class BodyLanguageService: NSObject, ObservableObject {
         let session = self.session
         DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
         isObserving = true
+    }
+
+    /// (Re)adds the camera input for the current position. Returns false
+    /// when that camera cannot be opened.
+    private func configureCameraInput() -> Bool {
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: cameraPosition),
+              let input = try? AVCaptureDeviceInput(device: device),
+              session.canAddInput(input) else { return false }
+        session.addInput(input)
+        return true
+    }
+
+    /// Switch between front and back camera. Works while observing (the
+    /// session is reconfigured live) and while stopped (applies on next start).
+    func switchCamera() {
+        let newPosition: AVCaptureDevice.Position = cameraPosition == .front ? .back : .front
+        guard isObserving else { cameraPosition = newPosition; return }
+        let oldPosition = cameraPosition
+        session.beginConfiguration()
+        for input in session.inputs { session.removeInput(input) }
+        cameraPosition = newPosition
+        if configureCameraInput() {
+            session.commitConfiguration()
+            cameraError = nil
+        } else {
+            // New camera unavailable — go back to the one that worked.
+            for input in session.inputs { session.removeInput(input) }
+            cameraPosition = oldPosition
+            _ = configureCameraInput()
+            session.commitConfiguration()
+            cameraError = "That camera is not available on this device."
+        }
     }
 
     func stop() -> BodyLanguageResult {
