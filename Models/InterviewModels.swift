@@ -1,7 +1,8 @@
 import Foundation
 
-// AI Interview Voice Coach — v1.0.0 build 1, bundle com.shaik.aiinterviewvoice
-// Real human-voice interviewer + spoken answers + voice correction + English check.
+// AI Interview Voice Coach — v1.1.0 build 3, bundle com.shaik.aiinterviewvoice
+// Real human-voice interviewer + spoken answers + voice correction + English check
+// + video body observation (posture / eye / movement, on-device Vision).
 // On-device only: no server, no login, no upload. History stays on the phone.
 
 enum Topic: String, CaseIterable, Codable, Identifiable {
@@ -58,6 +59,22 @@ struct Evaluation: Codable, Identifiable {
     let wordsPerMinute: Int
     let englishTips: [String]
     let correctedAnswer: String
+    // Video body observation (v1.1, optional so v1.0 history still decodes).
+    var bodyScore: Int?
+    var bodyPosture: String?
+    var bodyEye: String?
+    var bodyMovement: String?
+    var bodyTips: [String]?
+    /// Attach a body-observation result to this evaluation.
+    func withBody(_ result: BodyLanguageResult) -> Evaluation {
+        var copy = self
+        copy.bodyScore = result.bodyScore
+        copy.bodyPosture = result.postureLabel
+        copy.bodyEye = result.eyeLabel
+        copy.bodyMovement = result.movementLabel
+        copy.bodyTips = result.tips
+        return copy
+    }
     var overallLabel: String {
         switch overallScore { case 80...100: return "Strong — interview ready"
         case 60..<80: return "Good — polish a little"
