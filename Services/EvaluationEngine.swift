@@ -92,7 +92,8 @@ struct EvaluationEngine {
             transcript: transcript, date: Date(), durationSeconds: durationSeconds,
             contentScore: content, englishScore: english, overallScore: overall, verdict: verdict,
             missingKeywords: missing, fillerCount: fillerCount, wordsPerMinute: wpm,
-            englishTips: tips, correctedAnswer: corrected
+            englishTips: tips, correctedAnswer: corrected,
+            bodyScore: nil, bodyPosture: nil, bodyEye: nil, bodyMovement: nil, bodyTips: nil
         )
     }
 }
