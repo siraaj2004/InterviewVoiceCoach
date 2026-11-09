@@ -42,4 +42,28 @@ final class AIInterviewVoiceTests: XCTestCase {
         let ev = EvaluationEngine.evaluate(question: q, transcript: "He don't learn patterns from data, machine learning is good.", durationSeconds: 8)
         XCTAssertTrue(ev.englishTips.contains(where: { $0.contains("doesn't") }))
     }
+    // v1.1 body observation — no camera needed for these.
+    func testEvaluationStartsWithNoBodyScore() {
+        let q = QuestionBank.all[0]
+        let ev = EvaluationEngine.evaluate(question: q, transcript: "A variable is a named reference to a value stored in memory.", durationSeconds: 10)
+        XCTAssertNil(ev.bodyScore)
+        XCTAssertNil(ev.bodyTips)
+    }
+    func testWithBodyAttachesBodyResult() {
+        let q = QuestionBank.all[0]
+        let ev = EvaluationEngine.evaluate(question: q, transcript: "A variable is a named reference to a value stored in memory.", durationSeconds: 10)
+        let body = BodyLanguageResult(bodyScore: 82, postureLabel: "Upright", eyeLabel: "Looking at camera", movementLabel: "Calm", personVisiblePercent: 100, tips: ["Keep your posture upright."])
+        let withBody = ev.withBody(body)
+        XCTAssertEqual(withBody.bodyScore, 82)
+        XCTAssertEqual(withBody.bodyPosture, "Upright")
+        XCTAssertEqual(withBody.bodyEye, "Looking at camera")
+        XCTAssertEqual(withBody.bodyTips?.first, "Keep your posture upright.")
+    }
+    func testBodyResultDefaultsToCannotTell() {
+        let body = BodyLanguageResult()
+        XCTAssertEqual(body.bodyScore, 0)
+        XCTAssertEqual(body.postureLabel, "Not checked")
+        XCTAssertEqual(body.personVisiblePercent, 0)
+        XCTAssertTrue(body.tips.isEmpty)
+    }
 }
