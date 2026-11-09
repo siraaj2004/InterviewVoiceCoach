@@ -109,12 +109,16 @@ final class AIInterviewVoiceTests: XCTestCase {
     }
     // v1.5 frozen-video fix — on the simulator there is no camera, so
     // start() must fail honestly instead of claiming it is observing.
+    // cameraError is NOT asserted here: on a fresh simulator the permission
+    // status is .notDetermined, so start() returns false while the
+    // permission request is still in flight and the error is set later by
+    // the callback. The synchronous contract — false return, never
+    // claiming to observe — is what the app relies on.
     @MainActor
     func testStartReturnsFalseWithoutCamera() {
         let service = BodyLanguageService()
         XCTAssertFalse(service.start())
         XCTAssertFalse(service.isObserving)
-        XCTAssertNotNil(service.cameraError)
     }
     @MainActor
     func testSecondStartDoesNotClaimSuccess() {
@@ -122,6 +126,5 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertFalse(service.start())
         XCTAssertFalse(service.start())
         XCTAssertFalse(service.isObserving)
-        XCTAssertNotNil(service.cameraError)
     }
 }
