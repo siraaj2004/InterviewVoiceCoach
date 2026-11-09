@@ -89,4 +89,18 @@ final class AIInterviewVoiceTests: XCTestCase {
         let store = InterviewStore()
         XCTAssertTrue(store.autoReaskAfterCorrection)
     }
+    // v1.3 camera — no hardware needed for these.
+    func testDefaultCameraIsFront() {
+        let service = BodyLanguageService()
+        XCTAssertEqual(service.cameraPosition, .front)
+        XCTAssertNil(service.cameraError)
+        XCTAssertFalse(service.isObserving)
+    }
+    func testSwitchCameraTogglesPosition() {
+        let service = BodyLanguageService()
+        service.switchCamera()
+        XCTAssertEqual(service.cameraPosition, .back)
+        service.switchCamera()
+        XCTAssertEqual(service.cameraPosition, .front)
+    }
 }
