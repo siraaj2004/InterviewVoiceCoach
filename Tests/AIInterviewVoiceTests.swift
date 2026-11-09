@@ -107,4 +107,21 @@ final class AIInterviewVoiceTests: XCTestCase {
         service.switchCamera()
         XCTAssertEqual(service.cameraPosition, .front)
     }
+    // v1.5 frozen-video fix — on the simulator there is no camera, so
+    // start() must fail honestly instead of claiming it is observing.
+    @MainActor
+    func testStartReturnsFalseWithoutCamera() {
+        let service = BodyLanguageService()
+        XCTAssertFalse(service.start())
+        XCTAssertFalse(service.isObserving)
+        XCTAssertNotNil(service.cameraError)
+    }
+    @MainActor
+    func testSecondStartDoesNotClaimSuccess() {
+        let service = BodyLanguageService()
+        XCTAssertFalse(service.start())
+        XCTAssertFalse(service.start())
+        XCTAssertFalse(service.isObserving)
+        XCTAssertNotNil(service.cameraError)
+    }
 }
