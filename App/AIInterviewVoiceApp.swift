@@ -4,6 +4,9 @@ import SwiftUI
 /// v1.1 adds video body observation (front camera + Vision pose, on-device only).
 /// Build 4 fix: renamed the `body` service property to `bodyService` — it
 /// collided with SwiftUI View's `body` and broke run #3's build.
+/// Build 5 fix: Vision has no `.head` joint (run #4 failed on it) — use
+/// `.nose` for head position, and capture the camera session locally before
+/// starting it on a background queue.
 /// Real human-voice interviewer asks AI Engineer questions, the user answers by
 /// speaking, wrong/partial answers are corrected by voice, and every answer gets
 /// an English-accuracy score (fillers, grammar, pace) + a content score.
