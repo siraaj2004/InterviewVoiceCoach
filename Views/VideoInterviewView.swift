@@ -13,7 +13,9 @@ import AVFoundation
 struct VideoInterviewView: View {
     @StateObject private var bodyService = BodyLanguageService()
     @State private var result: BodyLanguageResult?
-    @State private var observing = false
+    // v1.5: the button state reads straight from bodyService.isObserving —
+    // the old local `observing` flag said "observing" even when start()
+    // had failed, so the Stop button showed while the video was frozen.
 
     var body: some View {
         ZStack {
@@ -44,13 +46,13 @@ struct VideoInterviewView: View {
                     Text("Sit with head and shoulders in frame, good light on your face, look at the camera. On your phone only — no video is saved.")
                         .font(.footnote).foregroundColor(.white.opacity(0.85))
                     HStack(spacing: 10) {
-                        if observing {
+                        if bodyService.isObserving {
                             Button("Stop & check body") {
-                                result = bodyService.stop(); observing = false
+                                result = bodyService.stop()
                             }.buttonStyle(.borderedProminent).tint(.green)
                         } else {
                             Button("Start video observation") {
-                                bodyService.start(); observing = true; result = nil
+                                if bodyService.start() { result = nil }
                             }.buttonStyle(.borderedProminent)
                         }
                     }
@@ -77,10 +79,10 @@ struct VideoInterviewView: View {
             }
         }
         .onAppear {
-            if !observing { bodyService.start(); observing = true }
+            if !bodyService.isObserving { _ = bodyService.start() }
         }
         .onDisappear {
-            if observing { _ = bodyService.stop(); observing = false }
+            if bodyService.isObserving { _ = bodyService.stop() }
         }
     }
 }
