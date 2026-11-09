@@ -25,9 +25,13 @@ jobs:
       - name: Run tests (best effort — must not block the IPA build)
         continue-on-error: true
         run: |
-          xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' CODE_SIGNING_ALLOWED=NO \
+          # v1.3: the runner image has iPhone 17 / iPhone SE simulators, but
+          # no iPhone 16/15 — run #6 ran 0 tests for that reason. Try the
+          # simulators that exist first, then the older fallbacks.
+          xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' CODE_SIGNING_ALLOWED=NO \
+          || xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone SE,OS=latest' CODE_SIGNING_ALLOWED=NO \
+          || xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' CODE_SIGNING_ALLOWED=NO \
           || xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' CODE_SIGNING_ALLOWED=NO \
-          || xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 14,OS=latest' CODE_SIGNING_ALLOWED=NO \
           || echo "No concrete iOS simulator available on this runner — tests skipped, IPA build continues"
       - name: Build device app (unsigned) and package IPA
         run: bash scripts/package-unsigned-ipa.sh
