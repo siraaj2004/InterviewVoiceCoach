@@ -4,7 +4,7 @@ struct InterviewView: View {
     @EnvironmentObject private var store: InterviewStore
     @EnvironmentObject private var speech: SpeechService
     // v1.1: video body observation (front camera + Vision, on-device only).
-    @StateObject private var body = BodyLanguageService()
+    @StateObject private var bodyService = BodyLanguageService()
     @State private var videoBodyOn = true
     @State private var lastBody: BodyLanguageResult?
 
@@ -88,15 +88,15 @@ struct InterviewView: View {
     private func answerCard(_ q: InterviewQuestion) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your answer — speak it").font(.headline)
-            if videoBodyOn && body.isObserving {
-                CameraPreview(session: body.captureSession)
+            if videoBodyOn && bodyService.isObserving {
+                CameraPreview(session: bodyService.captureSession)
                     .frame(height: 170).cornerRadius(12)
                 HStack(spacing: 8) {
-                    Text("Posture: \(body.livePosture)").font(.caption.bold())
-                    Text("Eyes: \(body.liveEye)").font(.caption.bold())
-                    Text("Move: \(body.liveMovement)").font(.caption.bold())
+                    Text("Posture: \(bodyService.livePosture)").font(.caption.bold())
+                    Text("Eyes: \(bodyService.liveEye)").font(.caption.bold())
+                    Text("Move: \(bodyService.liveMovement)").font(.caption.bold())
                 }
-                Text(body.personVisible ? "Camera can see you — keep head and shoulders in frame." : "Camera cannot see you yet — sit in frame, good light on your face.")
+                Text(bodyService.personVisible ? "Camera can see you — keep head and shoulders in frame." : "Camera cannot see you yet — sit in frame, good light on your face.")
                     .font(.caption).foregroundColor(.secondary)
             }
             if speech.isListening {
@@ -189,7 +189,7 @@ struct InterviewView: View {
     private func startListening() {
         speech.speechRate = Float(store.speechRate)
         speech.voiceIdentifier = store.selectedVoiceId
-        if videoBodyOn { body.start() }
+        if videoBodyOn { bodyService.start() }
         speech.startListening { _, _ in }
     }
     private func finishAnswer(for q: InterviewQuestion) {
@@ -202,7 +202,7 @@ struct InterviewView: View {
         var ev = EvaluationEngine.evaluate(question: q, transcript: text, durationSeconds: duration)
         // v1.1: stop the camera observation and attach the body result.
         if videoBodyOn {
-            let bodyResult = body.stop()
+            let bodyResult = bodyService.stop()
             lastBody = bodyResult
             ev = ev.withBody(bodyResult)
         } else {
@@ -223,7 +223,7 @@ struct InterviewView: View {
     }
     private func nextQuestion() {
         speech.stopSpeaking()
-        if body.isObserving { _ = body.stop() }
+        if bodyService.isObserving { _ = bodyService.stop() }
         showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
         if store.mode == .mock, answeredCount >= 5 { endSession(); return }
@@ -236,7 +236,7 @@ struct InterviewView: View {
     }
     private func endSession() {
         speech.stopSpeaking(); speech.stopListening()
-        if body.isObserving { _ = body.stop() }
+        if bodyService.isObserving { _ = bodyService.stop() }
         started = false; showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
         rebuildQueue()

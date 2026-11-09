@@ -9,19 +9,19 @@ import AVFoundation
 /// mic starts, stop it on Stop & Check, and add its bodyScore + tips to
 /// the result card alongside the content and English scores.
 struct VideoInterviewView: View {
-    @StateObject private var body = BodyLanguageService()
+    @StateObject private var bodyService = BodyLanguageService()
     @State private var result: BodyLanguageResult?
     @State private var observing = false
 
     var body: some View {
         VStack(spacing: 14) {
             ZStack(alignment: .topLeading) {
-                CameraPreview(session: body.captureSession)
+                CameraPreview(session: bodyService.captureSession)
                     .frame(height: 320).cornerRadius(14).clipped()
                 VStack(alignment: .leading, spacing: 6) {
-                    BodyBadge(text: "Posture: \(body.livePosture)", good: body.livePosture == "Upright")
-                    BodyBadge(text: "Eyes: \(body.liveEye)", good: body.liveEye == "Looking at camera")
-                    BodyBadge(text: "Movement: \(body.liveMovement)", good: body.liveMovement == "Calm")
+                    BodyBadge(text: "Posture: \(bodyService.livePosture)", good: bodyService.livePosture == "Upright")
+                    BodyBadge(text: "Eyes: \(bodyService.liveEye)", good: bodyService.liveEye == "Looking at camera")
+                    BodyBadge(text: "Movement: \(bodyService.liveMovement)", good: bodyService.liveMovement == "Calm")
                 }.padding(10)
             }
             Text("Sit with head and shoulders in frame, good light on your face, look at the camera. The app watches posture, eye direction and fidgeting — on your phone only, no video is saved.")
@@ -29,11 +29,11 @@ struct VideoInterviewView: View {
             HStack(spacing: 10) {
                 if observing {
                     Button("Stop & check body") {
-                        result = body.stop(); observing = false
+                        result = bodyService.stop(); observing = false
                     }.buttonStyle(.borderedProminent).tint(.green)
                 } else {
                     Button("Start video observation") {
-                        body.start(); observing = true; result = nil
+                        bodyService.start(); observing = true; result = nil
                     }.buttonStyle(.borderedProminent)
                 }
             }
