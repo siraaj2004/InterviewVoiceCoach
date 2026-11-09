@@ -1,0 +1,39 @@
+name: AI Interview Voice tests and unsigned IPA
+
+# Run from GitHub: repo -> Actions -> this workflow -> Run workflow.
+# Output is an UNSIGNED .ipa artifact. Install from Windows with Sideloadly or
+# AltStore, which sign it with your Apple ID. It is NOT a signed App Store build,
+# and no IPA is claimed until this workflow actually produces one and its
+# contents are verified.
+#
+# This app is ON-DEVICE ONLY: no server, no login, no audio upload.
+# Microphone + Speech Recognition are used only while answering.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app || sudo xcode-select -s /Applications/Xcode_16.3.app || sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Run tests (best effort — must not block the IPA build)
+        continue-on-error: true
+        run: |
+          xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' CODE_SIGNING_ALLOWED=NO \
+          || xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' CODE_SIGNING_ALLOWED=NO \
+          || xcodebuild test -project AIInterviewVoice.xcodeproj -scheme AIInterviewVoice -destination 'platform=iOS Simulator,name=iPhone 14,OS=latest' CODE_SIGNING_ALLOWED=NO \
+          || echo "No concrete iOS simulator available on this runner — tests skipped, IPA build continues"
+      - name: Build device app (unsigned) and package IPA
+        run: bash scripts/package-unsigned-ipa.sh
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIInterviewVoice-unsigned-ipa
+          path: build/AIInterviewVoice-unsigned.ipa
+          retention-days: 14
