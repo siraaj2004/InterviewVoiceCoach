@@ -30,6 +30,9 @@ struct SettingsView: View {
                     Toggle("Show ideal answer before I answer", isOn: $store.showIdealBeforeAnswer)
                     Text("Leave this off for a real interview feel — the correction comes by voice after you answer.")
                         .font(.footnote).foregroundColor(.secondary)
+                    Toggle("Ask the question again after a correction", isOn: $store.autoReaskAfterCorrection)
+                    Text("When your answer is wrong, the app corrects you by voice, then asks the same question again so you can try it right away.")
+                        .font(.footnote).foregroundColor(.secondary)
                 }
                 Section("Privacy") {
                     Text("No account, no server, no upload. Your voice is recognised on your iPhone and your history stays on your phone. Microphone and Speech Recognition are used only while you are answering.")
@@ -39,7 +42,7 @@ struct SettingsView: View {
                     Button("Ask permissions again") { speech.requestPermissions() }
                 }
                 Section("About") {
-                    Text("AI Interview Voice Coach v1.1.0 (build 5) • 59 questions, 10 topics • AI Engineer interview practice • Video body check is on-device only — no video recorded or uploaded")
+                    Text("AI Interview Voice Coach v1.2.0 (build 6) • 59 questions, 10 topics • AI Engineer interview practice • Video body check is on-device only — no video recorded or uploaded")
                         .font(.footnote).foregroundColor(.secondary)
                 }
             }

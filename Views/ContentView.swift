@@ -29,7 +29,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("AI Interview Voice Coach")
                             .font(.largeTitle.bold())
-                        Text("Real interviewer voice. You answer by speaking. Wrong answers get corrected by voice — and every answer gets an English score.")
+                        Text("Real interviewer voice. You answer by speaking. Wrong answers get corrected by voice, then the question is asked again — and every answer gets an English score, plus a body-language score from the front camera.")
                             .foregroundColor(.secondary)
                     }
                     .padding(.top, 8)

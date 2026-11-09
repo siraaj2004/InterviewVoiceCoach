@@ -98,6 +98,13 @@ struct InterviewView: View {
                 }
                 Text(bodyService.personVisible ? "Camera can see you — keep head and shoulders in frame." : "Camera cannot see you yet — sit in frame, good light on your face.")
                     .font(.caption).foregroundColor(.secondary)
+                // v1.2: live body correction while you answer — on screen only,
+                // never spoken live, or the mic would hear it and transcribe it.
+                if let banner = bodyCorrectionBanner {
+                    Text(banner).font(.subheadline.bold())
+                        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.orange.opacity(0.2)).cornerRadius(10)
+                }
             }
             if speech.isListening {
                 Text(speech.liveTranscript.isEmpty ? "Listening… speak now" : speech.liveTranscript)
@@ -173,6 +180,14 @@ struct InterviewView: View {
         .padding().background(Color(.secondarySystemBackground)).cornerRadius(14)
     }
 
+    /// v1.2: the live body correction shown while answering.
+    private var bodyCorrectionBanner: String? {
+        if bodyService.livePosture == "Slouched" { return "⚠️ Sit upright — shoulders back, head level." }
+        if bodyService.liveEye == "Looking away" { return "⚠️ Look at the camera — eye contact matters." }
+        if bodyService.liveMovement == "Fidgety" { return "⚠️ Keep your hands still — too much movement distracts." }
+        return nil
+    }
+
     // MARK: Flow
     private func rebuildQueue() {
         queue = QuestionBank.questions(for: store.selectedTopic).shuffled()
@@ -210,15 +225,15 @@ struct InterviewView: View {
         }
         store.add(ev)
         lastEvaluation = ev; showingResult = true; answeredCount += 1
-        // Voice correction straight away when wrong / partial — the core ask.
-        if ev.overallScore < 80 {
-            speech.speak("Your answer was \(ev.verdict). \(ev.correctedAnswer)")
-        } else {
-            speech.speak("Good answer. \(ev.englishTips.first ?? "")")
-        }
-        // Body tip by voice too, when the camera saw something to fix.
-        if let b = lastBody, b.bodyScore < 70, let tip = b.tips.first {
-            speech.speak("Body language: \(tip)")
+        // v1.2 correct-me loop: ONE spoken script — answer correction +
+        // body tips together (v1.1's second speak() cut the first one off).
+        // Then, when the answer was wrong, ask the same question again so
+        // he can answer it right away with the correction in mind.
+        let shouldReask = store.autoReaskAfterCorrection && ev.overallScore < 80
+        speech.speak(ev.spokenCorrection()) {
+            if shouldReask {
+                speech.speak("Try again. \(q.question)")
+            }
         }
     }
     private func nextQuestion() {
@@ -231,7 +246,7 @@ struct InterviewView: View {
         if let q = current { speech.speak("Next question. \(q.question)") }
     }
     private func retrySameQuestion() {
-        speech.stopSpeaking(); showingResult = false; lastEvaluation = nil; speech.liveTranscript = ""
+        speech.stopSpeaking(); showingResult = false; lastEvaluation = nil; lastBody = nil; speech.liveTranscript = ""
         if let q = current { speech.speak(q.question) }
     }
     private func endSession() {
