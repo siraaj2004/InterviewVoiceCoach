@@ -60,7 +60,11 @@ final class BodyLanguageService: NSObject, ObservableObject {
         if session.canAddOutput(videoOutput) { session.addOutput(videoOutput) }
         session.commitConfiguration()
         resetCounts()
-        DispatchQueue.global(qos: .userInitiated).async { self.session.startRunning() }
+        // Capture the session locally first: referencing the MainActor-isolated
+        // property from inside the Sendable closure warns in Swift 5.9 and is
+        // an error in Swift 6 mode (run #4 warning).
+        let session = self.session
+        DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
         isObserving = true
     }
 
@@ -131,22 +135,25 @@ extension BodyLanguageService: AVCaptureVideoDataOutputSampleBufferDelegate {
                   let points = try? observation.recognizedPoints(.all) else { return }
             self.personFrames += 1
             self.personVisible = true
-            // Posture: shoulder height difference + head vs neck.
+            // Posture: shoulder height difference + nose vs neck.
+            // Vision has NO `.head` joint (run #4 failed on it) — use `.nose`,
+            // the topmost face point. Vision y is up: nose sits above the neck
+            // when upright, so headLift is positive; a small lift = head dropped.
             if let lSh = points[.leftShoulder]?.location, let rSh = points[.rightShoulder]?.location,
-               let neck = points[.neck]?.location, let head = points[.head]?.location {
+               let neck = points[.neck]?.location, let nose = points[.nose]?.location {
                 let shoulderTilt = abs(lSh.y - rSh.y)
-                let headDrop = neck.y - head.y
-                let slouched = shoulderTilt > 0.08 || headDrop < 0.04
+                let headLift = nose.y - neck.y
+                let slouched = shoulderTilt > 0.08 || headLift < 0.04
                 if slouched { self.slouchFrames += 1 } else { self.uprightFrames += 1 }
                 self.livePosture = slouched ? "Slouched" : "Upright"
                 if let last = self.lastHeadPoint {
-                    let move = hypot(head.x - last.x, head.y - last.y)
+                    let move = hypot(nose.x - last.x, nose.y - last.y)
                     self.movementSamples.append(move)
                     if self.movementSamples.count > 120 { self.movementSamples.removeFirst() }
                     let mean = self.movementSamples.reduce(0, +) / CGFloat(self.movementSamples.count)
                     self.liveMovement = mean > 0.08 ? "Fidgety" : mean > 0.04 ? "Moving" : "Calm"
                 }
-                self.lastHeadPoint = head
+                self.lastHeadPoint = nose
             }
         }
     }
