@@ -11,6 +11,10 @@ import SwiftUI
 /// v1.4 makes the Video tab camera full-screen (front or back, switchable),
 /// with badges on top and controls in a translucent bottom panel, and
 /// starts observation as soon as the tab opens.
+/// v1.5 fixes the frozen video on a second start: the session kept its old
+/// camera input after stop(), so re-starting failed and the preview froze
+/// on the last frame. start() now drops stale inputs, reports success
+/// honestly, and the Video tab reads its state from the service.
 /// Real human-voice interviewer asks AI Engineer questions, the user answers by
 /// speaking, wrong/partial answers are corrected by voice, and every answer gets
 /// an English-accuracy score (fillers, grammar, pace) + a content score.
