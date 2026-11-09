@@ -51,32 +51,44 @@ final class BodyLanguageService: NSObject, ObservableObject {
 
     var captureSession: AVCaptureSession { session }
 
-    func start() {
-        guard !isObserving else { return }
+    /// Starts observation. Returns true only when the camera is actually
+    /// running. v1.5: the session keeps its old camera input after stop(),
+    /// so a second start() tried to add a duplicate input for the same
+    /// device — canAddInput said no, start failed with a misleading
+    /// "Camera not available" error, the session never restarted, and the
+    /// preview froze on the last frame (seen on shaik's phone, v1.4).
+    /// The fix: drop any stale inputs before adding a fresh one, and let
+    /// the caller know whether it really started.
+    @discardableResult
+    func start() -> Bool {
+        guard !isObserving else { return true }
         cameraError = nil
         // Camera permission first — a denied camera used to show a black
         // preview with no explanation (v1.2 on shaik's phone).
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .denied, .restricted:
             cameraError = "Camera is off — allow Camera for AI Interview Voice in iPhone Settings → Privacy & Security → Camera."
-            return
+            return false
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 Task { @MainActor in
-                    if granted { self?.start() }
+                    if granted { _ = self?.start() }
                     else { self?.cameraError = "Camera is off — allow Camera for AI Interview Voice in iPhone Settings → Privacy & Security → Camera." }
                 }
             }
-            return
+            return false
         default:
             break
         }
         session.beginConfiguration()
         session.sessionPreset = .medium
+        // Drop the stale input from the previous run, if any — a camera
+        // device can only be attached once, so re-adding it fails.
+        for input in session.inputs { session.removeInput(input) }
         guard configureCameraInput() else {
             session.commitConfiguration()
             cameraError = "Camera not available on this device."
-            return
+            return false
         }
         videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "body-language-vision"))
         videoOutput.alwaysDiscardsLateVideoFrames = true
@@ -89,6 +101,7 @@ final class BodyLanguageService: NSObject, ObservableObject {
         let session = self.session
         DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
         isObserving = true
+        return true
     }
 
     /// (Re)adds the camera input for the current position. Returns false
