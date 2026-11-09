@@ -37,7 +37,8 @@ SwiftUI, iOS 16+, `AVSpeechSynthesizer` (TTS), `SFSpeechRecognizer` + `AVAudioEn
 
 ## Versions
 - v1.0.0 build 2 — voice interviewer, spoken answers, voice correction, English check. Run #1 failed on iOS 17-only `AVAudioApplication` (fixed to `AVAudioSession` in build 2); run #2 succeeded.
-- v1.1.0 build 3 — adds video body observation (this version).
+- v1.1.0 build 5 — adds video body observation. Runs #3/#4 failed (SwiftUI `body` name collision; Vision has no `.head` joint — use `.nose`); run #5 succeeded, 10 tests.
+- v1.2.0 build 6 — correct-me loop (this version): live body correction banner while answering (on screen only — speaking live would be heard by the mic), one combined spoken correction (answer + body, fixing v1.1's double-speak cut-off), and the same question asked again after a wrong answer (toggle in Settings, on by default).
 
 ## Limits, stated plainly
 - Swift is **not compiled on Linux** — the IPA is only real after the GitHub Actions run succeeds and its contents are verified. No IPA is claimed before that.
