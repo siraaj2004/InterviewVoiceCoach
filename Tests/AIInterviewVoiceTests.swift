@@ -66,4 +66,27 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertEqual(body.personVisiblePercent, 0)
         XCTAssertTrue(body.tips.isEmpty)
     }
+    // v1.2 correct-me loop — one spoken script, answer + body together.
+    func testSpokenCorrectionCombinesAnswerAndBody() {
+        let q = QuestionBank.all[0]
+        let ev = EvaluationEngine.evaluate(question: q, transcript: "I don't know.", durationSeconds: 3)
+        let body = BodyLanguageResult(bodyScore: 50, postureLabel: "Slouched — sit upright", eyeLabel: "Looking away a lot", movementLabel: "Calm — good", personVisiblePercent: 90, tips: ["Sit upright — shoulders back, head level."])
+        let script = ev.withBody(body).spokenCorrection()
+        XCTAssertTrue(script.contains("The correct answer is"))
+        XCTAssertTrue(script.contains("Body language:"))
+        XCTAssertTrue(script.contains("Sit upright"))
+    }
+    func testSpokenCorrectionForGoodAnswerHasNoCorrection() {
+        let q = QuestionBank.all[0]
+        let ev = EvaluationEngine.evaluate(question: q, transcript: "A variable is a named reference to a value stored in memory. When I write x equals 10, the name x is bound to the integer object 10.", durationSeconds: 12)
+        XCTAssertTrue(ev.spokenCorrection().hasPrefix("Good answer."))
+        XCTAssertFalse(ev.spokenCorrection().contains("The correct answer is"))
+    }
+    func testAutoReaskDefaultsOn() {
+        // Fresh store (no saved setting in the test runner) must re-ask
+        // after a correction by default.
+        UserDefaults.standard.removeObject(forKey: "ai-interview-voice-coach.autoReask.v1")
+        let store = InterviewStore()
+        XCTAssertTrue(store.autoReaskAfterCorrection)
+    }
 }
