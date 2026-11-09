@@ -16,13 +16,18 @@ struct VideoInterviewView: View {
     var body: some View {
         VStack(spacing: 14) {
             ZStack(alignment: .topLeading) {
-                CameraPreview(session: bodyService.captureSession)
+                CameraPreview(session: bodyService.captureSession, mirrored: bodyService.cameraPosition == .front)
                     .frame(height: 320).cornerRadius(14).clipped()
                 VStack(alignment: .leading, spacing: 6) {
                     BodyBadge(text: "Posture: \(bodyService.livePosture)", good: bodyService.livePosture == "Upright")
                     BodyBadge(text: "Eyes: \(bodyService.liveEye)", good: bodyService.liveEye == "Looking at camera")
                     BodyBadge(text: "Movement: \(bodyService.liveMovement)", good: bodyService.liveMovement == "Calm")
                 }.padding(10)
+            }
+            Text(bodyService.cameraPosition == .front ? "Front camera" : "Back camera")
+                .font(.caption.bold()).foregroundColor(.secondary)
+            if let error = bodyService.cameraError {
+                Text(error).font(.subheadline).foregroundColor(.red)
             }
             Text("Sit with head and shoulders in frame, good light on your face, look at the camera. The app watches posture, eye direction and fidgeting — on your phone only, no video is saved.")
                 .font(.footnote).foregroundColor(.secondary)
@@ -36,6 +41,9 @@ struct VideoInterviewView: View {
                         bodyService.start(); observing = true; result = nil
                     }.buttonStyle(.borderedProminent)
                 }
+                Button { bodyService.switchCamera() } label: {
+                    Label("Switch camera", systemImage: "camera.rotate")
+                }.buttonStyle(.bordered)
             }
             if let r = result {
                 VStack(alignment: .leading, spacing: 8) {
@@ -62,19 +70,34 @@ struct BodyBadge: View {
     }
 }
 
+/// v1.3: the preview layer IS the view's layer, so it always fills the
+/// view exactly. (v1.2 added the preview as a sublayer sized once from
+/// view.bounds — which was zero at creation — so the camera stayed black
+/// on shaik's phone even while frames were flowing.)
+final class CameraPreviewView: UIView {
+    override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+    var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer.frame = bounds
+    }
+}
+
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        let layer = AVCaptureVideoPreviewLayer(session: session)
-        layer.videoGravity = .resizeAspectFill
-        layer.frame = view.bounds
-        view.layer.addSublayer(layer)
+    let mirrored: Bool
+    func makeUIView(context: Context) -> CameraPreviewView {
+        let view = CameraPreviewView()
+        view.previewLayer.session = session
+        view.previewLayer.videoGravity = .resizeAspectFill
+        view.backgroundColor = .black
         return view
     }
-    func updateUIView(_ uiView: UIView, context: Context) {
-        if let layer = uiView.layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
-            layer.frame = uiView.bounds
+    func updateUIView(_ uiView: CameraPreviewView, context: Context) {
+        uiView.previewLayer.session = session
+        if let connection = uiView.previewLayer.connection {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = mirrored
         }
     }
 }

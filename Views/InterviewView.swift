@@ -89,12 +89,15 @@ struct InterviewView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your answer — speak it").font(.headline)
             if videoBodyOn && bodyService.isObserving {
-                CameraPreview(session: bodyService.captureSession)
+                CameraPreview(session: bodyService.captureSession, mirrored: bodyService.cameraPosition == .front)
                     .frame(height: 170).cornerRadius(12)
                 HStack(spacing: 8) {
                     Text("Posture: \(bodyService.livePosture)").font(.caption.bold())
                     Text("Eyes: \(bodyService.liveEye)").font(.caption.bold())
                     Text("Move: \(bodyService.liveMovement)").font(.caption.bold())
+                    Button { bodyService.switchCamera() } label: {
+                        Label(bodyService.cameraPosition == .front ? "Front" : "Back", systemImage: "camera.rotate")
+                    }.font(.caption).buttonStyle(.bordered)
                 }
                 Text(bodyService.personVisible ? "Camera can see you — keep head and shoulders in frame." : "Camera cannot see you yet — sit in frame, good light on your face.")
                     .font(.caption).foregroundColor(.secondary)
@@ -105,6 +108,9 @@ struct InterviewView: View {
                         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.orange.opacity(0.2)).cornerRadius(10)
                 }
+            }
+            if videoBodyOn, let error = bodyService.cameraError {
+                Text(error).font(.subheadline).foregroundColor(.red)
             }
             if speech.isListening {
                 Text(speech.liveTranscript.isEmpty ? "Listening… speak now" : speech.liveTranscript)
