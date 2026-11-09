@@ -9,10 +9,21 @@ final class InterviewStore: ObservableObject {
     @Published var speechRate: Double = 0.48
     @Published var selectedVoiceId: String?
     @Published var showIdealBeforeAnswer = false
+    // v1.2: after a wrong answer is corrected by voice, ask the same
+    // question again so he can try it right away. Saved on the phone.
+    @Published var autoReaskAfterCorrection = true {
+        didSet { UserDefaults.standard.set(autoReaskAfterCorrection, forKey: autoReaskKey) }
+    }
 
     private let key = "ai-interview-voice-coach.history.v1"
+    private let autoReaskKey = "ai-interview-voice-coach.autoReask.v1"
 
-    init() { load() }
+    init() {
+        if let saved = UserDefaults.standard.object(forKey: autoReaskKey) as? Bool {
+            autoReaskAfterCorrection = saved
+        }
+        load()
+    }
 
     var totalAnswered: Int { history.count }
     var averageOverall: Int {
