@@ -14,6 +14,20 @@ import Combine
 /// judgement of confidence or intelligence; low light / cropped body /
 /// low-confidence frames count as CANNOT TELL, never as a bad score.
 /// Camera permission is NSCameraUsageDescription in Info.plist (v1.1).
+///
+/// v1.6.0 — the "Camera not available" error came back on shaik's phone
+/// (Interview tab, Q3 #19, 2026-11-10 4:28 PM) even after v1.5 dropped the
+/// stale *input*. v1.5 left the stale *output* attached: stop() never
+/// removed the AVCaptureVideoDataOutput, so a second start() found
+/// canAddOutput false, and the session was left half-configured while
+/// startRunning() from the previous start was still in flight on a
+/// background queue. The fix: stop() fully releases the camera — it
+/// stops the session, then removes BOTH inputs and outputs and clears
+/// the delegate — and start() builds a FRESH video output every time,
+/// refuses to reconfigure a running session, and falls back to any
+/// camera only when the preferred one does not exist on this device.
+/// A busy device now says so plainly, with a Retry button in the UI,
+/// instead of the generic "not available" dead end.
 struct BodyLanguageResult: Codable {
     var bodyScore: Int = 0
     var postureLabel: String = "Not checked"
@@ -52,16 +66,17 @@ final class BodyLanguageService: NSObject, ObservableObject {
     var captureSession: AVCaptureSession { session }
 
     /// Starts observation. Returns true only when the camera is actually
-    /// running. v1.5: the session keeps its old camera input after stop(),
-    /// so a second start() tried to add a duplicate input for the same
-    /// device — canAddInput said no, start failed with a misleading
-    /// "Camera not available" error, the session never restarted, and the
-    /// preview froze on the last frame (seen on shaik's phone, v1.4).
-    /// The fix: drop any stale inputs before adding a fresh one, and let
-    /// the caller know whether it really started.
+    /// running. Safe to call again after stop(), and safe to call while
+    /// already observing (returns true without reconfiguring).
     @discardableResult
     func start() -> Bool {
-        guard !isObserving else { return true }
+        // Already running — do not reconfigure a live session. Reconfiguring
+        // a running session was one way the second start failed.
+        if isObserving && session.isRunning { return true }
+        // A previous startRunning() may still be in flight on its queue.
+        // Stop it fully first so the device is free before we re-attach it.
+        if session.isRunning { session.stopRunning() }
+        isObserving = false
         cameraError = nil
         // Camera permission first — a denied camera used to show a black
         // preview with no explanation (v1.2 on shaik's phone).
@@ -70,6 +85,9 @@ final class BodyLanguageService: NSObject, ObservableObject {
             cameraError = "Camera is off — allow Camera for AI Interview Voice in iPhone Settings → Privacy & Security → Camera."
             return false
         case .notDetermined:
+            // v1.6: say so instead of failing silently — the first tap on a
+            // fresh install hits this while the permission sheet is up.
+            cameraError = "Camera permission — tap Allow when your iPhone asks, then tap Retry camera."
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 Task { @MainActor in
                     if granted { _ = self?.start() }
@@ -82,17 +100,28 @@ final class BodyLanguageService: NSObject, ObservableObject {
         }
         session.beginConfiguration()
         session.sessionPreset = .medium
-        // Drop the stale input from the previous run, if any — a camera
-        // device can only be attached once, so re-adding it fails.
+        // Drop every stale attachment from the previous run — inputs AND
+        // outputs. v1.5 dropped inputs only; the leftover output made
+        // canAddOutput fail on the next start.
         for input in session.inputs { session.removeInput(input) }
+        for output in session.outputs { session.removeOutput(output) }
         guard configureCameraInput() else {
             session.commitConfiguration()
-            cameraError = "Camera not available on this device."
+            cameraError = "Camera is busy or not available — tap Retry camera. If the Video tab was just open, leave it first, then retry here."
             return false
         }
-        videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "body-language-vision"))
-        videoOutput.alwaysDiscardsLateVideoFrames = true
-        if session.canAddOutput(videoOutput) { session.addOutput(videoOutput) }
+        // Fresh output every start: the old one stays attached to the
+        // stopped session and cannot be re-added.
+        let freshOutput = AVCaptureVideoDataOutput()
+        freshOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "body-language-vision"))
+        freshOutput.alwaysDiscardsLateVideoFrames = true
+        guard session.canAddOutput(freshOutput) else {
+            session.commitConfiguration()
+            cameraError = "Camera is busy or not available — tap Retry camera. If the Video tab was just open, leave it first, then retry here."
+            return false
+        }
+        session.addOutput(freshOutput)
+        videoOutput = freshOutput
         session.commitConfiguration()
         resetCounts()
         // Capture the session locally first: referencing the MainActor-isolated
@@ -101,15 +130,40 @@ final class BodyLanguageService: NSObject, ObservableObject {
         let session = self.session
         DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
         isObserving = true
+        cameraError = nil
         return true
     }
 
+    /// The camera for the preferred position, with a discovery-session
+    /// fallback — .default(wideAngle) alone returns nil on some devices.
+    private func cameraDevice(for position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+        if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position) {
+            return device
+        }
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInWideAngleCamera, .builtInDualCamera, .builtInTrueDepthCamera, .builtInDualWideCamera],
+            mediaType: .video, position: position)
+        return discovery.devices.first
+    }
+
     /// (Re)adds the camera input for the current position. Returns false
-    /// when that camera cannot be opened.
+    /// when that camera cannot be opened. Falls back to the other camera
+    /// ONLY when the preferred one does not exist on this device at all —
+    /// a busy camera is reported as busy (with Retry), never silently
+    /// swapped for the back camera while the user expects the front one.
     private func configureCameraInput() -> Bool {
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: cameraPosition),
+        if let device = cameraDevice(for: cameraPosition),
+           let input = try? AVCaptureDeviceInput(device: device),
+           session.canAddInput(input) {
+            session.addInput(input)
+            return true
+        }
+        guard cameraDevice(for: cameraPosition) == nil else { return false }
+        let other: AVCaptureDevice.Position = cameraPosition == .front ? .back : .front
+        guard let device = cameraDevice(for: other) ?? AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input) else { return false }
+        cameraPosition = other
         session.addInput(input)
         return true
     }
@@ -136,9 +190,23 @@ final class BodyLanguageService: NSObject, ObservableObject {
         }
     }
 
+    /// Stops observation and FULLY releases the camera so the next start()
+    /// — from this tab, the Video tab, or the auto-retry after a correction —
+    /// can attach it again. v1.5 stopped the session but left its inputs
+    /// and outputs attached, which is what broke the next start.
     func stop() -> BodyLanguageResult {
-        session.stopRunning()
+        if session.isRunning { session.stopRunning() }
+        session.beginConfiguration()
+        for input in session.inputs { session.removeInput(input) }
+        for output in session.outputs { session.removeOutput(output) }
+        session.commitConfiguration()
+        videoOutput.setSampleBufferDelegate(nil, queue: nil)
+        videoOutput = AVCaptureVideoDataOutput()
         isObserving = false
+        personVisible = false
+        livePosture = "—"
+        liveEye = "—"
+        liveMovement = "Calm"
         return finish()
     }
 

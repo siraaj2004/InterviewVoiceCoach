@@ -63,6 +63,18 @@ final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     // MARK: Speak (interviewer + correction)
     func speak(_ text: String, completion: (() -> Void)? = nil) {
         stopSpeaking()
+        // v1.6: route every utterance through the LOUDSPEAKER, not the
+        // earpiece. startListening() sets .playAndRecord/measurement, which
+        // on iPhone routes TTS quietly to the earpiece — shaik could not
+        // hear the correction after Stop & Check. Reset to speaker here,
+        // before every question and every correction.
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers])
+            try session.setActive(true, options: [])
+        } catch {
+            // Keep speaking on the current route rather than failing aloud.
+        }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = bestVoice()
         utterance.rate = speechRate

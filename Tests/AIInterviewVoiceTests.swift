@@ -127,4 +127,38 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertFalse(service.start())
         XCTAssertFalse(service.isObserving)
     }
+    // v1.6 — stop() must FULLY release the camera (inputs AND outputs),
+    // so the next start() is a clean start, not a stale-output failure.
+    @MainActor
+    func testStopReleasesCameraInputsAndOutputs() {
+        let service = BodyLanguageService()
+        XCTAssertFalse(service.start())
+        let result = service.stop()
+        XCTAssertFalse(service.isObserving)
+        XCTAssertTrue(service.captureSession.inputs.isEmpty)
+        XCTAssertTrue(service.captureSession.outputs.isEmpty)
+        XCTAssertEqual(result.bodyScore, 0)
+    }
+    @MainActor
+    func testStartAfterStopIsStillHonestWithoutCamera() {
+        let service = BodyLanguageService()
+        XCTAssertFalse(service.start())
+        _ = service.stop()
+        XCTAssertFalse(service.start())
+        XCTAssertFalse(service.isObserving)
+    }
+    // v1.6 — the exact question in shaik's screenshot (Q19, gradient):
+    // a wrong answer must score below 80 and its spoken correction must
+    // carry the real correct answer, so the auto-retry fires.
+    func testGradientWrongAnswerGetsCorrectionAndReask() {
+        let q = QuestionBank.all[18] // Q19 gradient
+        XCTAssertTrue(q.question.contains("gradient"))
+        let ev = EvaluationEngine.evaluate(question: q, transcript: "I don't know.", durationSeconds: 3)
+        XCTAssertLessThan(ev.overallScore, 80)
+        XCTAssertTrue(ev.verdict.contains("Incorrect") || ev.verdict.contains("Needs correction"))
+        let script = ev.spokenCorrection()
+        XCTAssertTrue(script.contains("The correct answer is"))
+        XCTAssertTrue(script.contains("steepest"))
+        XCTAssertTrue(script.contains("opposite direction"))
+    }
 }
