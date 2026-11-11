@@ -147,18 +147,22 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertFalse(service.start())
         XCTAssertFalse(service.isObserving)
     }
-    // v1.6 — the exact question in shaik's screenshot (Q19, gradient):
-    // a wrong answer must score below 80 and its spoken correction must
-    // carry the real correct answer, so the auto-retry fires.
-    func testGradientWrongAnswerGetsCorrectionAndReask() {
-        let q = QuestionBank.all[18] // Q19 gradient
-        XCTAssertTrue(q.question.contains("gradient"))
+    // v1.7 — the answer shows on screen: the question in shaik's
+    // screenshot (Q7, generator) must carry a real ideal answer and a
+    // tip, and a wrong answer's on-screen correction must contain
+    // that same ideal answer — not just a spoken summary.
+    func testGeneratorQuestionHasIdealAnswerToShowOnScreen() {
+        let q = QuestionBank.all[6] // Q7 generator
+        XCTAssertTrue(q.question.contains("generator"))
+        XCTAssertTrue(q.idealAnswer.contains("yield"))
+        XCTAssertTrue(q.idealAnswer.contains("one at a time"))
+        XCTAssertFalse(q.tip.isEmpty)
+    }
+    func testWrongGeneratorAnswerCorrectionShowsIdealAnswer() {
+        let q = QuestionBank.all[6] // Q7 generator
         let ev = EvaluationEngine.evaluate(question: q, transcript: "I don't know.", durationSeconds: 3)
         XCTAssertLessThan(ev.overallScore, 80)
-        XCTAssertTrue(ev.verdict.contains("Incorrect") || ev.verdict.contains("Needs correction"))
-        let script = ev.spokenCorrection()
-        XCTAssertTrue(script.contains("The correct answer is"))
-        XCTAssertTrue(script.contains("steepest"))
-        XCTAssertTrue(script.contains("opposite direction"))
+        XCTAssertTrue(ev.correctedAnswer.contains(q.idealAnswer))
+        XCTAssertTrue(ev.correctedAnswer.contains("yield"))
     }
 }

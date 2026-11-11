@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// v1.7.0 — the answer now SHOWS ON SCREEN, not just by voice:
+/// a "Show answer" button on the full-screen question card displays
+/// the ideal answer + tip in a green box under the question, and after
+/// Stop & Check the result (your spoken answer, scores, correct
+/// answer) stays on the same full-screen camera screen instead of
+/// dropping into a scroll view where the correct answer sat below the
+/// fold. The auto-retry then hides the result and restarts the mic
+/// on that same screen.
 /// v1.6.0 — Interview tab camera is now FULL-SCREEN (it was a 170pt box),
 /// the same full-screen pattern as the Video tab: the camera fills the
 /// screen behind translucent question + answer panels, with the live
@@ -26,12 +34,22 @@ struct InterviewView: View {
     // v1.6: heard-nothing feedback + auto-retry state.
     @State private var heardNothing = false
     @State private var awaitingRetry = false
+    // v1.7: "Show answer" on screen — ideal answer + tip under the
+    // question, on the full-screen card and on the plain question card.
+    @State private var showAnswer = false
 
     private var current: InterviewQuestion? { queue.isEmpty ? nil : queue[index] }
+    /// v1.7: the ideal answer is visible whenever he asked for it, or
+    /// whenever the Settings toggle says to show it before answering.
+    private var answerVisible: Bool { showAnswer || store.showIdealBeforeAnswer }
 
     var body: some View {
         NavigationView {
-            if started, videoBodyOn, !showingResult, let q = current {
+            // v1.7: stay on the full-screen camera screen while
+            // answering AND while the result is shown, so the answer
+            // is on screen in both states. The scroll view is only
+            // for setup (not started) or when the video check is off.
+            if started, videoBodyOn, let q = current {
                 fullScreenInterview(q)
             } else {
                 ScrollView {
@@ -50,12 +68,13 @@ struct InterviewView: View {
         .onAppear { if queue.isEmpty { rebuildQueue() } }
     }
 
-    // MARK: Full-screen interview (v1.6)
+    // MARK: Full-screen interview (v1.6, v1.7 result on screen)
     /// Camera fills the whole screen; question on top, answer controls
-    /// in a translucent bottom panel. Used while answering, before the
-    /// result card appears. Once Stop & Check shows the result, the
-    /// scroll view takes over so the correction text stays readable
-    /// while the retry mic is listening.
+    /// in a translucent bottom panel. Used while answering AND while
+    /// the result is shown (v1.7), so the correct answer is readable
+    /// on the same screen instead of only spoken or buried in a scroll
+    /// view. Once the auto-retry fires, the result hides and the mic
+    /// restarts on this same screen.
     private func fullScreenInterview(_ q: InterviewQuestion) -> some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -90,8 +109,18 @@ struct InterviewView: View {
                         Button("Repeat") { speech.speak(q.question) }.buttonStyle(.bordered).tint(.white)
                         Button("Next") { nextQuestion() }.buttonStyle(.bordered).tint(.white)
                     }
-                    if store.showIdealBeforeAnswer {
-                        Text("Ideal: \(q.idealAnswer)").font(.subheadline).foregroundColor(.white.opacity(0.85))
+                    // v1.7: Show answer on screen — the ideal answer +
+                    // tip, in a green box right under the question.
+                    Button { showAnswer.toggle() } label: {
+                        Label(answerVisible ? "Hide answer" : "Show answer", systemImage: answerVisible ? "eye.slash.fill" : "eye.fill")
+                    }.buttonStyle(.bordered).tint(.white)
+                    if answerVisible {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Answer: \(q.idealAnswer)").font(.subheadline.bold()).foregroundColor(.white)
+                            Text("Tip: \(q.tip)").font(.footnote).foregroundColor(.white.opacity(0.85))
+                        }
+                        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.green.opacity(0.55)).cornerRadius(10)
                     }
                 }
                 .padding()
@@ -100,55 +129,123 @@ struct InterviewView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
                 Spacer()
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Your answer — speak it").font(.headline).foregroundColor(.white)
-                    if videoBodyOn, let error = bodyService.cameraError {
-                        Text(error).font(.subheadline).foregroundColor(.red)
-                        Button("Retry camera") { _ = bodyService.start() }.buttonStyle(.borderedProminent)
-                    }
-                    if let banner = bodyCorrectionBanner {
-                        Text(banner).font(.subheadline.bold()).foregroundColor(.white)
-                            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.orange.opacity(0.7)).cornerRadius(10)
-                    }
-                    if heardNothing {
-                        Text("I didn't hear you — tap the mic and try again.").font(.subheadline).foregroundColor(.orange)
-                    }
-                    if speech.isListening {
-                        Text(speech.liveTranscript.isEmpty ? "Listening… speak now" : speech.liveTranscript)
-                            .font(.body).foregroundColor(.white).padding().frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.blue.opacity(0.35)).cornerRadius(10)
-                    } else if !speech.liveTranscript.isEmpty {
-                        Text(speech.liveTranscript).font(.body).foregroundColor(.white).padding().frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.white.opacity(0.15)).cornerRadius(10)
-                    }
-                    HStack(spacing: 10) {
-                        if speech.isListening {
-                            Button { finishAnswer(for: q) } label: {
-                                Label("Stop & Check", systemImage: "checkmark.circle.fill")
-                            }.buttonStyle(.borderedProminent).tint(.green)
-                        } else {
-                            Button { speech.speak(q.question); startListening() } label: {
-                                Label("Tap mic & answer", systemImage: "mic.fill")
-                            }.buttonStyle(.borderedProminent)
-                        }
-                        if speech.isSpeaking {
-                            Button("Stop voice") { speech.stopSpeaking() }.buttonStyle(.bordered).tint(.white)
-                        }
-                    }
-                    Text("Tip: answer in 2–3 full sentences. Avoid um / uh — pause silently instead.")
-                        .font(.footnote).foregroundColor(.white.opacity(0.85))
-                    Button("End session") { endSession() }.font(.footnote).foregroundColor(.red)
+                if let ev = lastEvaluation, showingResult {
+                    fullScreenResultPanel(ev)
+                } else {
+                    fullScreenAnswerPanel(q)
                 }
-                .padding(14)
-                .background(Color.black.opacity(0.55))
-                .cornerRadius(18)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
             }
         }
         .navigationTitle("Voice Interview")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: Full-screen result (v1.7) — your answer + correct answer
+    // on the same camera screen, right after Stop & Check.
+    private func fullScreenResultPanel(_ ev: Evaluation) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(ev.verdict).font(.headline).foregroundColor(.white)
+                    Spacer()
+                    Text("\(ev.overallScore)/100").font(.title3.bold()).foregroundColor(.white)
+                }
+                Text(ev.overallLabel).font(.subheadline).foregroundColor(.white.opacity(0.85))
+                HStack(spacing: 12) {
+                    ScoreRing(label: "Overall", score: ev.overallScore, color: .blue)
+                    ScoreRing(label: "Content", score: ev.contentScore, color: .green)
+                    ScoreRing(label: "English", score: ev.englishScore, color: .orange)
+                    if let bs = ev.bodyScore {
+                        ScoreRing(label: "Body", score: bs, color: .purple)
+                    }
+                }
+                .foregroundColor(.white)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Your answer (\(ev.transcript.split(separator: " ").count) words, \(ev.wordsPerMinute) words/min, \(ev.fillerCount) fillers)").font(.caption).foregroundColor(.white.opacity(0.85))
+                    Text("“\(ev.transcript)”").font(.subheadline).italic().foregroundColor(.white)
+                }
+                if !ev.missingKeywords.isEmpty {
+                    Text("Missing ideas: \(ev.missingKeywords.joined(separator: ", "))").font(.subheadline).foregroundColor(.orange)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Correct answer").font(.subheadline.bold()).foregroundColor(.white)
+                    Text(ev.correctedAnswer).font(.subheadline).foregroundColor(.white)
+                }
+                if !ev.englishTips.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("English tips").font(.subheadline.bold()).foregroundColor(.white)
+                        ForEach(ev.englishTips, id: \.self) { Text("• \($0)").font(.subheadline).foregroundColor(.white.opacity(0.9)) }
+                    }
+                }
+                HStack(spacing: 10) {
+                    Button { speech.speak(ev.correctedAnswer) } label: {
+                        Label(speech.isSpeaking ? "Speaking…" : "Hear correction", systemImage: "speaker.wave.2.fill")
+                    }.buttonStyle(.borderedProminent).disabled(speech.isSpeaking)
+                    Button("Try again") { retrySameQuestion() }.buttonStyle(.bordered).tint(.white)
+                    Button("Next question") { nextQuestion() }.buttonStyle(.bordered).tint(.white)
+                }
+                if awaitingRetry {
+                    Text("Correction spoken — your turn: speak the corrected answer now.").font(.subheadline).foregroundColor(.green)
+                }
+                Button("End session") { endSession() }.font(.footnote).foregroundColor(.red)
+            }
+        }
+        .padding(14)
+        .background(Color.black.opacity(0.55))
+        .cornerRadius(18)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: Full-screen answer panel (v1.7) — the live answer box,
+    // split out of fullScreenInterview so the result panel can
+    // replace it after Stop & Check on the same screen.
+    private func fullScreenAnswerPanel(_ q: InterviewQuestion) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your answer — speak it").font(.headline).foregroundColor(.white)
+            if videoBodyOn, let error = bodyService.cameraError {
+                Text(error).font(.subheadline).foregroundColor(.red)
+                Button("Retry camera") { _ = bodyService.start() }.buttonStyle(.borderedProminent)
+            }
+            if let banner = bodyCorrectionBanner {
+                Text(banner).font(.subheadline.bold()).foregroundColor(.white)
+                    .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.7)).cornerRadius(10)
+            }
+            if heardNothing {
+                Text("I didn't hear you — tap the mic and try again.").font(.subheadline).foregroundColor(.orange)
+            }
+            if speech.isListening {
+                Text(speech.liveTranscript.isEmpty ? "Listening… speak now" : speech.liveTranscript)
+                    .font(.body).foregroundColor(.white).padding().frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.blue.opacity(0.35)).cornerRadius(10)
+            } else if !speech.liveTranscript.isEmpty {
+                Text(speech.liveTranscript).font(.body).foregroundColor(.white).padding().frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white.opacity(0.15)).cornerRadius(10)
+            }
+            HStack(spacing: 10) {
+                if speech.isListening {
+                    Button { finishAnswer(for: q) } label: {
+                        Label("Stop & Check", systemImage: "checkmark.circle.fill")
+                    }.buttonStyle(.borderedProminent).tint(.green)
+                } else {
+                    Button { speech.speak(q.question); startListening() } label: {
+                        Label("Tap mic & answer", systemImage: "mic.fill")
+                    }.buttonStyle(.borderedProminent)
+                }
+                if speech.isSpeaking {
+                    Button("Stop voice") { speech.stopSpeaking() }.buttonStyle(.bordered).tint(.white)
+                }
+            }
+            Text("Tip: answer in 2–3 full sentences. Avoid um / uh — pause silently instead.")
+                .font(.footnote).foregroundColor(.white.opacity(0.85))
+            Button("End session") { endSession() }.font(.footnote).foregroundColor(.red)
+        }
+        .padding(14)
+        .background(Color.black.opacity(0.55))
+        .cornerRadius(18)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 
     // MARK: Setup
@@ -194,8 +291,17 @@ struct InterviewView: View {
                 Button("Repeat") { speech.speak(q.question) }.buttonStyle(.bordered)
                 Button("Next") { nextQuestion() }.buttonStyle(.bordered)
             }
-            if store.showIdealBeforeAnswer {
-                Text("Ideal: \(q.idealAnswer)").font(.subheadline).foregroundColor(.secondary)
+            // v1.7: Show answer on screen here too (video check off).
+            Button { showAnswer.toggle() } label: {
+                Label(answerVisible ? "Hide answer" : "Show answer", systemImage: answerVisible ? "eye.slash.fill" : "eye.fill")
+            }.buttonStyle(.bordered)
+            if answerVisible {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Answer: \(q.idealAnswer)").font(.subheadline.bold())
+                    Text("Tip: \(q.tip)").font(.footnote).foregroundColor(.secondary)
+                }
+                .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.15)).cornerRadius(10)
             }
         }
         .padding().background(Color(.secondarySystemBackground)).cornerRadius(14)
@@ -327,6 +433,7 @@ struct InterviewView: View {
         if store.mode == .mock { queue = Array(queue.prefix(5)) }
         started = true; answeredCount = 0; lastEvaluation = nil; showingResult = false
         heardNothing = false; awaitingRetry = false
+        showAnswer = store.showIdealBeforeAnswer
         speech.speechRate = Float(store.speechRate)
         speech.voiceIdentifier = store.selectedVoiceId
         if let q = current { speech.speak("Question \(index + 1). \(q.question)") }
@@ -359,6 +466,12 @@ struct InterviewView: View {
             let bodyResult = bodyService.stop()
             lastBody = bodyResult
             ev = ev.withBody(bodyResult)
+            // v1.7: the result now shows on the same full-screen camera
+            // screen, so restart the camera behind the result panel —
+            // the body result is already captured, new frames cannot
+            // change it. startListening() on retry is a no-op if the
+            // session is already running (v1.6 guard).
+            _ = bodyService.start()
         } else {
             lastBody = nil
         }
@@ -376,7 +489,15 @@ struct InterviewView: View {
             guard shouldReask, self.started, self.current?.id == q.id, self.showingResult else { return }
             self.speech.speak("Try again. \(q.question)") {
                 guard self.started, self.current?.id == q.id, self.showingResult else { return }
+                // v1.7: hide the result and go back to the answer box
+                // on the same full-screen screen before the mic starts,
+                // so the retry transcript is visible while speaking.
                 self.awaitingRetry = false
+                self.showingResult = false
+                self.lastEvaluation = nil
+                self.lastBody = nil
+                self.speech.liveTranscript = ""
+                self.showAnswer = self.store.showIdealBeforeAnswer
                 self.startListening()
             }
         }
@@ -384,6 +505,7 @@ struct InterviewView: View {
     private func nextQuestion() {
         speech.stopSpeaking()
         awaitingRetry = false; heardNothing = false
+        showAnswer = store.showIdealBeforeAnswer
         if bodyService.isObserving { _ = bodyService.stop() }
         showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
@@ -394,11 +516,13 @@ struct InterviewView: View {
     private func retrySameQuestion() {
         speech.stopSpeaking(); showingResult = false; lastEvaluation = nil; lastBody = nil; speech.liveTranscript = ""
         awaitingRetry = false; heardNothing = false
+        showAnswer = store.showIdealBeforeAnswer
         if let q = current { speech.speak(q.question) }
     }
     private func endSession() {
         speech.stopSpeaking(); speech.stopListening()
         awaitingRetry = false; heardNothing = false
+        showAnswer = false
         if bodyService.isObserving { _ = bodyService.stop() }
         started = false; showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
