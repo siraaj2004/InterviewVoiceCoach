@@ -1,5 +1,9 @@
 import SwiftUI
 
+/// v1.7.1 — the full answer is visible: the question card on the
+/// full-screen screen now scrolls, and the answer / tip / correction
+/// texts never truncate, so a long ideal answer reads in full
+/// instead of ending in "...".
 /// v1.7.0 — the answer now SHOWS ON SCREEN, not just by voice:
 /// a "Show answer" button on the full-screen question card displays
 /// the ideal answer + tip in a green box under the question, and after
@@ -94,41 +98,53 @@ struct InterviewView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text(q.topic.rawValue).font(.caption.bold()).padding(6).background(Color.blue.opacity(0.85)).foregroundColor(.white).cornerRadius(8)
-                        Text(q.difficulty.rawValue).font(.caption).padding(6).background(Color.green.opacity(0.85)).foregroundColor(.white).cornerRadius(8)
-                        Spacer()
-                        Text(questionCounter(for: q)).font(.caption).foregroundColor(.white.opacity(0.85))
-                    }
-                    Text(q.question).font(.title3.bold()).foregroundColor(.white)
-                    HStack(spacing: 10) {
-                        Button { speech.speak(q.question) } label: {
-                            Label(speech.isSpeaking ? "Speaking…" : "Hear question", systemImage: "speaker.wave.2.fill")
-                        }.buttonStyle(.borderedProminent).disabled(speech.isSpeaking)
-                        Button("Repeat") { speech.speak(q.question) }.buttonStyle(.bordered).tint(.white)
-                        Button("Next") { nextQuestion() }.buttonStyle(.bordered).tint(.white)
-                    }
-                    // v1.7: Show answer on screen — the ideal answer +
-                    // tip, in a green box right under the question.
-                    Button { showAnswer.toggle() } label: {
-                        Label(answerVisible ? "Hide answer" : "Show answer", systemImage: answerVisible ? "eye.slash.fill" : "eye.fill")
-                    }.buttonStyle(.bordered).tint(.white)
-                    if answerVisible {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Answer: \(q.idealAnswer)").font(.subheadline.bold()).foregroundColor(.white)
-                            Text("Tip: \(q.tip)").font(.footnote).foregroundColor(.white.opacity(0.85))
+                // v1.7.1: the question card SCROLLS, so a long ideal
+                // answer is fully visible (scroll down to read it all)
+                // instead of cut off with "..." when the card + the
+                // bottom answer panel fill the screen — that is what
+                // happened on shaik's phone (Q62 five years, 2026-11-11
+                // 10:01 PM: "shipping real..."). The bottom panel stays
+                // pinned while the card above it scrolls.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text(q.topic.rawValue).font(.caption.bold()).padding(6).background(Color.blue.opacity(0.85)).foregroundColor(.white).cornerRadius(8)
+                            Text(q.difficulty.rawValue).font(.caption).padding(6).background(Color.green.opacity(0.85)).foregroundColor(.white).cornerRadius(8)
+                            Spacer()
+                            Text(questionCounter(for: q)).font(.caption).foregroundColor(.white.opacity(0.85))
                         }
-                        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.green.opacity(0.55)).cornerRadius(10)
+                        Text(q.question).font(.title3.bold()).foregroundColor(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: 10) {
+                            Button { speech.speak(q.question) } label: {
+                                Label(speech.isSpeaking ? "Speaking…" : "Hear question", systemImage: "speaker.wave.2.fill")
+                            }.buttonStyle(.borderedProminent).disabled(speech.isSpeaking)
+                            Button("Repeat") { speech.speak(q.question) }.buttonStyle(.bordered).tint(.white)
+                            Button("Next") { nextQuestion() }.buttonStyle(.bordered).tint(.white)
+                        }
+                        // v1.7: Show answer on screen — the ideal answer +
+                        // tip, in a green box right under the question.
+                        Button { showAnswer.toggle() } label: {
+                            Label(answerVisible ? "Hide answer" : "Show answer", systemImage: answerVisible ? "eye.slash.fill" : "eye.fill")
+                        }.buttonStyle(.bordered).tint(.white)
+                        if answerVisible {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Answer: \(q.idealAnswer)").font(.subheadline.bold()).foregroundColor(.white)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text("Tip: \(q.tip)").font(.footnote).foregroundColor(.white.opacity(0.85))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.green.opacity(0.55)).cornerRadius(10)
+                        }
                     }
+                    .padding()
+                    .background(Color.black.opacity(0.55))
+                    .cornerRadius(14)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
                 }
-                .padding()
-                .background(Color.black.opacity(0.55))
-                .cornerRadius(14)
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                Spacer()
                 if let ev = lastEvaluation, showingResult {
                     fullScreenResultPanel(ev)
                 } else {
@@ -163,6 +179,7 @@ struct InterviewView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Your answer (\(ev.transcript.split(separator: " ").count) words, \(ev.wordsPerMinute) words/min, \(ev.fillerCount) fillers)").font(.caption).foregroundColor(.white.opacity(0.85))
                     Text("“\(ev.transcript)”").font(.subheadline).italic().foregroundColor(.white)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if !ev.missingKeywords.isEmpty {
                     Text("Missing ideas: \(ev.missingKeywords.joined(separator: ", "))").font(.subheadline).foregroundColor(.orange)
@@ -170,6 +187,7 @@ struct InterviewView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Correct answer").font(.subheadline.bold()).foregroundColor(.white)
                     Text(ev.correctedAnswer).font(.subheadline).foregroundColor(.white)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if !ev.englishTips.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
@@ -298,7 +316,9 @@ struct InterviewView: View {
             if answerVisible {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Answer: \(q.idealAnswer)").font(.subheadline.bold())
+                        .fixedSize(horizontal: false, vertical: true)
                     Text("Tip: \(q.tip)").font(.footnote).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(10).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.green.opacity(0.15)).cornerRadius(10)
@@ -392,6 +412,7 @@ struct InterviewView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your answer (\(ev.transcript.split(separator: " ").count) words, \(ev.wordsPerMinute) words/min, \(ev.fillerCount) fillers)").font(.caption).foregroundColor(.secondary)
                 Text("“\(ev.transcript)”").font(.subheadline).italic()
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if !ev.missingKeywords.isEmpty {
                 Text("Missing ideas: \(ev.missingKeywords.joined(separator: ", "))").font(.subheadline).foregroundColor(.orange)
@@ -403,6 +424,7 @@ struct InterviewView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Correct answer").font(.subheadline.bold())
                 Text(ev.correctedAnswer).font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 10) {
                 Button { speech.speak(ev.correctedAnswer) } label: {
