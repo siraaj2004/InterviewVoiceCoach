@@ -54,12 +54,13 @@ struct HomeView: View {
                         HowRow(n: "1", text: "Pick a topic, tap Interview. The app asks the question out loud in a human voice.")
                         HowRow(n: "2", text: "Tap the mic and answer by speaking. Your words appear live as text.")
                         HowRow(n: "3", text: "Tap Stop & Check. You get a content score + an English score (fillers, grammar, pace).")
-                        HowRow(n: "4", text: "If it is wrong or partial, tap Hear correction — the app speaks the correct answer and one English tip.")
+                        HowRow(n: "4", text: "If it is wrong or partial, tap Hear correction — the app speaks the correct answer and one English tip. The answer also shows on screen.")
+                        HowRow(n: "5", text: "Interview Prep mode asks the classic HR questions first — tell me about yourself, why hire you, five years — with the answer on screen to read and practise.")
                     }
                     .padding().background(Color(.secondarySystemBackground)).cornerRadius(12)
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("59 questions • 10 topics").font(.headline)
+                        Text("63 questions • 10 topics").font(.headline)
                         Text("Python • SQL • Maths • ML • Deep Learning • GenAI • AI Agents • MLOps • Coding • HR — the same bank as your daily interview practice.")
                             .font(.subheadline).foregroundColor(.secondary)
                         Text("Tip: for the most human voice, download an enhanced voice in Settings → Accessibility → Spoken Content → Voices → English (US).")

@@ -2,9 +2,9 @@ import XCTest
 @testable import AIInterviewVoice
 
 final class AIInterviewVoiceTests: XCTestCase {
-    func testBankHas59Questions() {
-        XCTAssertEqual(QuestionBank.all.count, 59)
-        XCTAssertEqual(Set(QuestionBank.all.map(\.id)).count, 59)
+    func testBankHas63Questions() {
+        XCTAssertEqual(QuestionBank.all.count, 63)
+        XCTAssertEqual(Set(QuestionBank.all.map(\.id)).count, 63)
     }
     func testBankCovers10Topics() {
         let topics = Set(QuestionBank.all.map(\.topic))
@@ -164,5 +164,36 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertLessThan(ev.overallScore, 80)
         XCTAssertTrue(ev.correctedAnswer.contains(q.idealAnswer))
         XCTAssertTrue(ev.correctedAnswer.contains("yield"))
+    }
+    // v1.7 Interview Prep — the classic HR questions a real
+    // interviewer asks a fresher, with real answers on screen.
+    func testPrepBankHasNineClassicHRQuestions() {
+        let hr = QuestionBank.all.filter { $0.topic == .hr }
+        XCTAssertEqual(hr.count, 9)
+        let asked = hr.map(\.question)
+        XCTAssertTrue(asked.contains("Tell me about yourself."))
+        XCTAssertTrue(asked.contains("Why should we hire you?"))
+        XCTAssertTrue(asked.contains("Where do you see yourself in five years?"))
+        XCTAssertTrue(asked.contains("Tell me about a challenge you faced and how you handled it."))
+        XCTAssertTrue(asked.contains("What is your strength? Answer with an example."))
+        XCTAssertTrue(asked.contains("What do you say when they ask about your weakness?"))
+    }
+    func testTellMeAboutYourselfIdealAnswerIsRealIntro() {
+        let q = QuestionBank.all.first(where: { $0.id == 55 })!
+        XCTAssertTrue(q.idealAnswer.contains("Shaik Mahmmad Siraz"))
+        XCTAssertTrue(q.idealAnswer.contains("IIT Patna"))
+        XCTAssertTrue(q.idealAnswer.contains("AI Engineer"))
+        // Speaking the ideal answer back must score high on content.
+        let ev = EvaluationEngine.evaluate(question: q, transcript: q.idealAnswer, durationSeconds: 20)
+        XCTAssertGreaterThanOrEqual(ev.contentScore, 70)
+        XCTAssertGreaterThanOrEqual(ev.overallScore, 60)
+    }
+    func testWhyHireYouWrongAnswerGetsCorrection() {
+        let q = QuestionBank.all.first(where: { $0.id == 60 })!
+        XCTAssertTrue(q.question.contains("Why should we hire you?"))
+        let ev = EvaluationEngine.evaluate(question: q, transcript: "I don't know.", durationSeconds: 3)
+        XCTAssertLessThan(ev.overallScore, 80)
+        XCTAssertTrue(ev.correctedAnswer.contains(q.idealAnswer))
+        XCTAssertTrue(ev.correctedAnswer.contains("quick learner"))
     }
 }

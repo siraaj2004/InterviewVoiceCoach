@@ -99,7 +99,7 @@ struct InterviewView: View {
                         Text(q.topic.rawValue).font(.caption.bold()).padding(6).background(Color.blue.opacity(0.85)).foregroundColor(.white).cornerRadius(8)
                         Text(q.difficulty.rawValue).font(.caption).padding(6).background(Color.green.opacity(0.85)).foregroundColor(.white).cornerRadius(8)
                         Spacer()
-                        Text("Q \(index + 1)\(store.mode == .mock ? " / 5" : " • #\(q.id)")").font(.caption).foregroundColor(.white.opacity(0.85))
+                        Text(questionCounter(for: q)).font(.caption).foregroundColor(.white.opacity(0.85))
                     }
                     Text(q.question).font(.title3.bold()).foregroundColor(.white)
                     HStack(spacing: 10) {
@@ -262,7 +262,7 @@ struct InterviewView: View {
             Toggle("Video body check — watch posture, eyes & movement while you answer", isOn: $videoBodyOn)
             Text("Front camera only, on this phone, full-screen while you answer. No video is recorded, saved or uploaded.")
                 .font(.footnote).foregroundColor(.secondary)
-            Text("\(QuestionBank.questions(for: store.selectedTopic).count) questions in this topic • \(store.mode == .mock ? "Mock: 5 random questions" : "Practice: go one by one, shuffled")")
+            Text(setupSummary)
                 .font(.footnote).foregroundColor(.secondary)
             Button { startSession() } label: {
                 Label("Start interview — voice on", systemImage: "play.fill")
@@ -281,7 +281,7 @@ struct InterviewView: View {
                 Text(q.topic.rawValue).font(.caption.bold()).padding(6).background(Color.blue.opacity(0.15)).cornerRadius(8)
                 Text(q.difficulty.rawValue).font(.caption).padding(6).background(Color.green.opacity(0.15)).cornerRadius(8)
                 Spacer()
-                Text("Q \(index + 1)\(store.mode == .mock ? " / 5" : " • #\(q.id)")").font(.caption).foregroundColor(.secondary)
+                Text(questionCounter(for: q)).font(.caption).foregroundColor(.secondary)
             }
             Text(q.question).font(.title3.bold())
             HStack(spacing: 10) {
@@ -425,8 +425,26 @@ struct InterviewView: View {
 
     // MARK: Flow
     private func rebuildQueue() {
-        queue = QuestionBank.questions(for: store.selectedTopic).shuffled()
+        // v1.7 Interview Prep: only the classic HR questions.
+        if store.mode == .prep {
+            queue = QuestionBank.all.filter { $0.topic == .hr }.shuffled()
+        } else {
+            queue = QuestionBank.questions(for: store.selectedTopic).shuffled()
+        }
         index = 0
+    }
+    /// v1.7: Mock shows Q n / 5, Interview Prep shows Q n / 9,
+    /// Practice shows the question's bank number.
+    private func questionCounter(for q: InterviewQuestion) -> String {
+        if store.mode == .mock { return "Q \(index + 1) / 5" }
+        if store.mode == .prep { return "Q \(index + 1) / \(queue.count)" }
+        return "Q \(index + 1) • #\(q.id)"
+    }
+    private var setupSummary: String {
+        if store.mode == .prep {
+            return "Interview Prep: 9 classic HR questions — tell me about yourself, strengths, weakness, why hire you, five years, and more. Answer by speaking, and read the answer on screen."
+        }
+        return "\(QuestionBank.questions(for: store.selectedTopic).count) questions in this topic • \(store.mode == .mock ? "Mock: 5 random questions" : "Practice: go one by one, shuffled")"
     }
     private func startSession() {
         rebuildQueue()

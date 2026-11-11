@@ -103,10 +103,15 @@ struct Evaluation: Codable, Identifiable {
 enum InterviewMode: String, CaseIterable, Codable {
     case practice = "Practice"
     case mock = "Mock Interview (5 Qs)"
+    // v1.7: Interview Prep — the classic HR questions first
+    // (tell me about yourself, strengths, weakness, why hire you,
+    // five years, challenge), so he can prepare for a real
+    // interview with the answer on screen to read and practise.
+    case prep = "Interview Prep (HR)"
     var count: Int { self == .mock ? 5 : 0 }
 }
 
-// MARK: - Full 59-question bank (from shaik's INTERVIEW_QUESTIONS.md, in English —
+// MARK: - Full 63-question bank (from shaik's INTERVIEW_QUESTIONS.md, in English —
 // the language interviewers actually ask in. Sample answers are the ideal answers
 // the voice coach speaks back when an answer is wrong or partial.)
 struct QuestionBank {
@@ -337,10 +342,14 @@ struct QuestionBank {
             idealAnswer: "First I reproduce the bug, read the error, then isolate it with prints or tests step by step until I find the failing line.",
             tip: "Reproduce, read, isolate — in that order."),
         // HR (55-59)
-        InterviewQuestion(id: 55, topic: .hr, difficulty: .basic, question: "Tell me about yourself. How do you start your self-introduction?",
-            keywords: ["name", "background", "skills", "example", "role", "minute"],
-            idealAnswer: "I start with my name, my background, my key skills with one example, and the role I am aiming for — in about one minute.",
-            tip: "Keep it to about one minute: name, background, skill, goal."),
+        // v1.7: Q55 is now a REAL self-introduction he can read on
+        // screen and practise — only true facts (his name, IIT Patna
+        // AIML pursuing, what he is learning, the role he wants).
+        // No invented projects or experience.
+        InterviewQuestion(id: 55, topic: .hr, difficulty: .basic, question: "Tell me about yourself.",
+            keywords: ["name", "pursuing", "iit patna", "python", "machine learning", "ai engineer", "role"],
+            idealAnswer: "My name is Shaik Mahmmad Siraz. I am pursuing Artificial Intelligence and Machine Learning at IIT Patna. I am learning Python, machine learning, and large language models, and I am looking for an entry-level AI Engineer role where I can keep learning and contribute.",
+            tip: "Keep it to about one minute: name, what you are pursuing, what you are learning, and the role you want."),
         InterviewQuestion(id: 56, topic: .hr, difficulty: .basic, question: "What is your strength? Answer with an example.",
             keywords: ["strength", "example", "result"],
             idealAnswer: "I name one real strength and prove it with a short example of what I did and its result.",
@@ -357,6 +366,26 @@ struct QuestionBank {
             keywords: ["disagreement", "listen", "trade-offs", "respectfully", "shared goal"],
             idealAnswer: "I listen first, discuss the trade-offs respectfully, and decide based on the team's shared goal.",
             tip: "Listen first, then decide on the shared goal."),
+        // HR (60-63) — v1.7 Interview Prep: the other classic
+        // questions every interviewer asks a fresher. Sample answers
+        // are short templates in his own true situation — no invented
+        // jobs, projects or experience.
+        InterviewQuestion(id: 60, topic: .hr, difficulty: .intermediate, question: "Why should we hire you?",
+            keywords: ["quick learner", "python", "machine learning", "work hard", "contribute", "fresher"],
+            idealAnswer: "You should hire me because I am a quick learner with a base in Python and machine learning. As a fresher, I will work hard to learn your stack and contribute.",
+            tip: "Give a reason, not just 'I am hardworking' — quick learner + base skills + what you will do."),
+        InterviewQuestion(id: 61, topic: .hr, difficulty: .intermediate, question: "Why do you want this AI Engineer role?",
+            keywords: ["ai engineer", "learn", "python", "machine learning", "llm", "build"],
+            idealAnswer: "I want this AI Engineer role because I love building with Python, machine learning, and LLMs, and I want to learn by solving real problems and building products people actually use.",
+            tip: "Say what attracts you to the work itself, not just the salary."),
+        InterviewQuestion(id: 62, topic: .hr, difficulty: .intermediate, question: "Where do you see yourself in five years?",
+            keywords: ["five years", "ai engineer", "skills", "projects", "team", "grow"],
+            idealAnswer: "In five years I see myself as a strong AI Engineer, with deep skills in machine learning and LLMs, shipping real projects and helping my team grow.",
+            tip: "Show growth in the same field — skills, real projects, team."),
+        InterviewQuestion(id: 63, topic: .hr, difficulty: .intermediate, question: "Tell me about a challenge you faced and how you handled it.",
+            keywords: ["challenge", "problem", "small steps", "learned", "patient"],
+            idealAnswer: "When I faced a challenge in my learning, I broke the problem into small steps, practised each step, asked for help when I was stuck, and kept going until it worked. I learned to stay patient and break big problems down.",
+            tip: "Use challenge, what you did, and what you learned — keep it short."),
     ]
     static func questions(for topic: Topic) -> [InterviewQuestion] {
         topic == .all ? all : all.filter { $0.topic == topic }
