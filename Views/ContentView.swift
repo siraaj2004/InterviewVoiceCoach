@@ -55,7 +55,7 @@ struct HomeView: View {
                         HowRow(n: "2", text: "Tap the mic and answer by speaking. Your words appear live as text.")
                         HowRow(n: "3", text: "Tap Stop & Check. You get a content score + an English score (fillers, grammar, pace).")
                         HowRow(n: "4", text: "If it is wrong or partial, tap Hear correction — the app speaks the correct answer and one English tip. The answer also shows on screen.")
-                        HowRow(n: "5", text: "Interview Prep mode asks the classic HR questions first — tell me about yourself, why hire you, five years — with the answer on screen to read and practise.")
+                        HowRow(n: "5", text: "Interview Prep mode is a full AI Engineer interview — the classic HR questions first (tell me about yourself, why hire you, five years), then Python, ML, GenAI and Agents — with the answer on screen to read and practise.")
                     }
                     .padding().background(Color(.secondarySystemBackground)).cornerRadius(12)
 

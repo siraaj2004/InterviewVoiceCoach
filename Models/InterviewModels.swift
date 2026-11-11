@@ -103,11 +103,13 @@ struct Evaluation: Codable, Identifiable {
 enum InterviewMode: String, CaseIterable, Codable {
     case practice = "Practice"
     case mock = "Mock Interview (5 Qs)"
-    // v1.7: Interview Prep — the classic HR questions first
-    // (tell me about yourself, strengths, weakness, why hire you,
-    // five years, challenge), so he can prepare for a real
-    // interview with the answer on screen to read and practise.
-    case prep = "Interview Prep (HR)"
+    // v1.7: Interview Prep — a full AI Engineer interview: the
+    // classic HR questions first (tell me about yourself, strengths,
+    // weakness, why hire you, five years, challenge), then the
+    // technical bank (Python, ML, GenAI, Agents, ...), so he can
+    // prepare for a real AI Engineer interview with the answer on
+    // screen to read and practise.
+    case prep = "Interview Prep (AI Engineer)"
     var count: Int { self == .mock ? 5 : 0 }
 }
 

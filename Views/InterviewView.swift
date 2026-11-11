@@ -425,15 +425,19 @@ struct InterviewView: View {
 
     // MARK: Flow
     private func rebuildQueue() {
-        // v1.7 Interview Prep: only the classic HR questions.
+        // v1.7 Interview Prep: a full AI Engineer interview — the 9
+        // classic HR questions first (shuffled), then the whole
+        // technical bank (shuffled). Practice/Mock keep the old order.
         if store.mode == .prep {
-            queue = QuestionBank.all.filter { $0.topic == .hr }.shuffled()
+            let hr = QuestionBank.all.filter { $0.topic == .hr }.shuffled()
+            let technical = QuestionBank.all.filter { $0.topic != .hr }.shuffled()
+            queue = hr + technical
         } else {
             queue = QuestionBank.questions(for: store.selectedTopic).shuffled()
         }
         index = 0
     }
-    /// v1.7: Mock shows Q n / 5, Interview Prep shows Q n / 9,
+    /// v1.7: Mock shows Q n / 5, Interview Prep shows Q n / 63,
     /// Practice shows the question's bank number.
     private func questionCounter(for q: InterviewQuestion) -> String {
         if store.mode == .mock { return "Q \(index + 1) / 5" }
@@ -442,7 +446,7 @@ struct InterviewView: View {
     }
     private var setupSummary: String {
         if store.mode == .prep {
-            return "Interview Prep: 9 classic HR questions — tell me about yourself, strengths, weakness, why hire you, five years, and more. Answer by speaking, and read the answer on screen."
+            return "Interview Prep: a full AI Engineer interview — 9 classic HR questions first, then Python, ML, GenAI, Agents and more. 63 questions. Answer by speaking, and read the answer on screen."
         }
         return "\(QuestionBank.questions(for: store.selectedTopic).count) questions in this topic • \(store.mode == .mock ? "Mock: 5 random questions" : "Practice: go one by one, shuffled")"
     }

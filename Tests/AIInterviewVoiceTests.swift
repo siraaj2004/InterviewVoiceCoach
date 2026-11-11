@@ -196,4 +196,20 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertTrue(ev.correctedAnswer.contains(q.idealAnswer))
         XCTAssertTrue(ev.correctedAnswer.contains("quick learner"))
     }
+    // v1.7 Interview Prep is a full AI Engineer interview: 9 HR
+    // questions first, then the technical bank.
+    func testPrepCoversAIEngineerInterview() {
+        let hr = QuestionBank.all.filter { $0.topic == .hr }
+        let technical = QuestionBank.all.filter { $0.topic != .hr }
+        XCTAssertEqual(hr.count, 9)
+        XCTAssertEqual(technical.count, 54)
+        XCTAssertEqual(hr.count + technical.count, 63)
+        let techTopics = Set(technical.map(\.topic))
+        XCTAssertTrue(techTopics.contains(.python))
+        XCTAssertTrue(techTopics.contains(.ml))
+        XCTAssertTrue(techTopics.contains(.genai))
+        XCTAssertTrue(techTopics.contains(.agents))
+        XCTAssertTrue(techTopics.contains(.dl))
+        XCTAssertTrue(techTopics.contains(.sql))
+    }
 }
