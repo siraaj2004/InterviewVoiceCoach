@@ -42,7 +42,7 @@ struct SettingsView: View {
                     Button("Ask permissions again") { speech.requestPermissions() }
                 }
                 Section("About") {
-                    Text("AI Interview Voice Coach v1.7.1 (build 12) • 63 questions, 10 topics • AI Engineer interview practice • Video body check is on-device only — no video recorded or uploaded")
+                    Text("AI Interview Voice Coach v1.8.0 (build 13) • 63 questions, 10 topics • AI Engineer interview practice • Video body check is on-device only — no video recorded or uploaded")
                         .font(.footnote).foregroundColor(.secondary)
                 }
             }

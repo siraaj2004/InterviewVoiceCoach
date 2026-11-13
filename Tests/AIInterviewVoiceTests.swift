@@ -155,7 +155,9 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertTrue(q.question.contains("gradient"))
         let ev = EvaluationEngine.evaluate(question: q, transcript: "I don't know.", durationSeconds: 3)
         XCTAssertLessThan(ev.overallScore, 80)
-        XCTAssertTrue(ev.verdict.contains("Incorrect") || ev.verdict.contains("Needs correction"))
+        // v1.8: "I don't know" covers no key idea, so the verdict now
+        // says Irrelevant instead of the old generic Incorrect.
+        XCTAssertTrue(ev.verdict.contains("Incorrect") || ev.verdict.contains("Needs correction") || ev.verdict.contains("Irrelevant"))
         let script = ev.spokenCorrection()
         XCTAssertTrue(script.contains("The correct answer is"))
         XCTAssertTrue(script.contains("steepest"))
@@ -225,5 +227,53 @@ final class AIInterviewVoiceTests: XCTestCase {
         XCTAssertTrue(techTopics.contains(.agents))
         XCTAssertTrue(techTopics.contains(.dl))
         XCTAssertTrue(techTopics.contains(.sql))
+    }
+    // v1.8 — relevance marks: a relevant answer scores high, an
+    // irrelevant one scores low however long and fluent it is, and
+    // completing a session gives total marks.
+    func testIrrelevantLongFluentAnswerScoresVeryLow() {
+        let q = QuestionBank.all[0] // variable
+        let ev = EvaluationEngine.evaluate(question: q, transcript: "I love cooking pasta with tomato sauce and fresh basil every Sunday with my family because it tastes wonderful and brings everyone together happily.", durationSeconds: 10)
+        XCTAssertEqual(ev.relevanceLabel, "Irrelevant")
+        XCTAssertLessThanOrEqual(ev.contentScore, 10)
+        XCTAssertLessThanOrEqual(ev.overallScore, 15)
+        XCTAssertTrue(ev.verdict.contains("Irrelevant"))
+        XCTAssertTrue(ev.spokenCorrection().contains("off-topic"))
+        XCTAssertTrue(ev.spokenCorrection().contains("The correct answer is"))
+    }
+    func testRelevantAnswerScoresHighAndIsLabelledRelevant() {
+        let q = QuestionBank.all[0]
+        let ev = EvaluationEngine.evaluate(question: q, transcript: q.idealAnswer, durationSeconds: 12)
+        XCTAssertEqual(ev.relevanceLabel, "Relevant")
+        XCTAssertGreaterThanOrEqual(ev.overallScore, 80)
+        XCTAssertTrue(ev.verdict.contains("Correct"))
+    }
+    func testPartlyRelevantAnswerScoresLessThanRelevant() {
+        let q = QuestionBank.all[0]
+        let relevant = EvaluationEngine.evaluate(question: q, transcript: q.idealAnswer, durationSeconds: 12)
+        let partly = EvaluationEngine.evaluate(question: q, transcript: "A variable is a name that holds a value in memory.", durationSeconds: 8)
+        XCTAssertEqual(partly.relevanceLabel, "Partly relevant")
+        XCTAssertLessThanOrEqual(partly.overallScore, 65)
+        XCTAssertLessThan(partly.overallScore, relevant.overallScore)
+    }
+    func testSessionSummaryTotalsMarks() {
+        let q1 = QuestionBank.all[0]
+        let q21 = QuestionBank.all[20]
+        let good1 = EvaluationEngine.evaluate(question: q1, transcript: q1.idealAnswer, durationSeconds: 12)
+        let good2 = EvaluationEngine.evaluate(question: q21, transcript: q21.idealAnswer, durationSeconds: 12)
+        let bad = EvaluationEngine.evaluate(question: q1, transcript: "I love cooking pasta with tomato sauce and fresh basil every Sunday with my family because it tastes wonderful and brings everyone together happily.", durationSeconds: 10)
+        let summary = SessionSummary(evaluations: [good1, good2, bad])
+        XCTAssertEqual(summary.count, 3)
+        XCTAssertEqual(summary.averageScore, summary.totalPoints / 3)
+        XCTAssertEqual(summary.relevantCount, 2)
+        XCTAssertEqual(summary.irrelevantCount, 1)
+        XCTAssertFalse(summary.grade.isEmpty)
+        XCTAssertTrue(summary.spokenSummary.contains("\(summary.averageScore) out of 100"))
+    }
+    func testSessionSummaryEmptyIsZero() {
+        let summary = SessionSummary(evaluations: [])
+        XCTAssertEqual(summary.averageScore, 0)
+        XCTAssertEqual(summary.totalPoints, 0)
+        XCTAssertEqual(summary.maxPoints, 0)
     }
 }

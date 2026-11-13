@@ -29,7 +29,7 @@ struct HistoryView: View {
                                     }
                                     Text(ev.question).font(.subheadline.bold())
                                     Text("“\(ev.transcript)”").font(.subheadline).lineLimit(3)
-                                    Text("\(ev.verdict) • English \(ev.englishScore)/100 • Content \(ev.contentScore)/100").font(.caption).foregroundColor(.secondary)
+                                    Text("\(ev.verdict) • \(ev.relevanceLabel) • English \(ev.englishScore)/100 • Content \(ev.contentScore)/100").font(.caption).foregroundColor(.secondary)
                                     if let bs = ev.bodyScore {
                                         Text("Body \(bs)/100 • \(ev.bodyPosture ?? "") • Eyes: \(ev.bodyEye ?? "") • \(ev.bodyMovement ?? "")").font(.caption).foregroundColor(.purple)
                                     }

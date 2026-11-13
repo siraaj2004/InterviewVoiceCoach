@@ -35,6 +35,11 @@ struct InterviewView: View {
     @State private var lastEvaluation: Evaluation?
     @State private var showingResult = false
     @State private var answeredCount = 0
+    // v1.8: total marks for the finished session — one entry per
+    // question, shown as a summary card when the Mock / session ends.
+    @State private var sessionResults: [Evaluation] = []
+    @State private var showingSessionSummary = false
+    private var sessionSummary: SessionSummary { SessionSummary(evaluations: sessionResults) }
     // v1.6: heard-nothing feedback + auto-retry state.
     @State private var heardNothing = false
     @State private var awaitingRetry = false
@@ -49,11 +54,13 @@ struct InterviewView: View {
 
     var body: some View {
         NavigationView {
-            // v1.7: stay on the full-screen camera screen while
-            // answering AND while the result is shown, so the answer
-            // is on screen in both states. The scroll view is only
-            // for setup (not started) or when the video check is off.
-            if started, videoBodyOn, let q = current {
+            // v1.8: after completing a session, show the total marks
+            // card first — average /100, grade, and every question
+            // with its relevance and marks — instead of silently
+            // resetting to the setup screen.
+            if showingSessionSummary {
+                sessionSummaryView
+            } else if started, videoBodyOn, let q = current {
                 fullScreenInterview(q)
             } else {
                 ScrollView {
@@ -167,6 +174,10 @@ struct InterviewView: View {
                     Text("\(ev.overallScore)/100").font(.title3.bold()).foregroundColor(.white)
                 }
                 Text(ev.overallLabel).font(.subheadline).foregroundColor(.white.opacity(0.85))
+                // v1.8: relevance on screen — Relevant = full marks,
+                // Irrelevant = low marks, however fluent the answer was.
+                Text("Relevance: \(ev.relevanceLabel)").font(.subheadline.bold())
+                    .foregroundColor(ev.isRelevant ? .green : ev.isIrrelevant ? .red : .orange)
                 HStack(spacing: 12) {
                     ScoreRing(label: "Overall", score: ev.overallScore, color: .blue)
                     ScoreRing(label: "Content", score: ev.contentScore, color: .green)
@@ -265,6 +276,59 @@ struct InterviewView: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
     }
+
+    // MARK: Session total marks (v1.8)
+    /// Shown after completing a Mock (5 Qs) or ending any session
+    /// with answers: total marks out of 100, grade, relevance counts,
+    /// and every question with its own marks and relevance.
+    private var sessionSummaryView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Session complete").font(.title2.bold())
+                HStack(spacing: 16) {
+                    ScoreRing(label: "Total marks", score: sessionSummary.averageScore, color: .blue)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(sessionSummary.totalPoints) / \(sessionSummary.maxPoints) points").font(.headline)
+                        Text(sessionSummary.grade).font(.subheadline).foregroundColor(.secondary)
+                        Text("\(sessionSummary.count) question\(sessionSummary.count == 1 ? "" : "s") answered").font(.subheadline).foregroundColor(.secondary)
+                    }
+                }
+                Text("Relevant: \(sessionSummary.relevantCount)  •  Partly relevant: \(sessionSummary.partlyCount)  •  Off-topic: \(sessionSummary.irrelevantCount)")
+                    .font(.subheadline)
+                Text("A relevant answer scores high. An off-topic answer scores low, however fluent it was — check the missing ideas below and try those questions again.")
+                    .font(.subheadline).foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(sessionSummary.evaluations) { ev in
+                        HStack(alignment: .top, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ev.question).font(.subheadline.bold())
+                                Text("\(ev.relevanceLabel) • Content \(ev.contentScore)/100 • English \(ev.englishScore)/100").font(.caption).foregroundColor(.secondary)
+                                if !ev.missingKeywords.isEmpty {
+                                    Text("Missing: \(ev.missingKeywords.joined(separator: ", "))").font(.caption).foregroundColor(.orange)
+                                }
+                            }
+                            Spacer()
+                            Text("\(ev.overallScore)/100").font(.subheadline.bold())
+                                .padding(6).background(scoreColor(ev.overallScore).opacity(0.15)).cornerRadius(8)
+                        }
+                        .padding(.vertical, 4)
+                        Divider()
+                    }
+                }
+                HStack(spacing: 10) {
+                    Button { speech.speak(sessionSummary.spokenSummary) } label: {
+                        Label(speech.isSpeaking ? "Speaking…" : "Hear total", systemImage: "speaker.wave.2.fill")
+                    }.buttonStyle(.borderedProminent).disabled(speech.isSpeaking)
+                    Button("New session") { startNewSession() }.buttonStyle(.bordered)
+                }
+                Button("Done") { dismissSessionSummary() }.font(.footnote).foregroundColor(.red)
+            }
+            .padding()
+        }
+        .navigationTitle("Total Marks")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    private func scoreColor(_ s: Int) -> Color { s >= 80 ? .green : s >= 60 ? .orange : .red }
 
     // MARK: Setup
     private var setupCard: some View {
@@ -395,6 +459,10 @@ struct InterviewView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(ev.verdict).font(.headline)
             Text(ev.overallLabel).font(.subheadline).foregroundColor(.secondary)
+            // v1.8: relevance on screen — Relevant = full marks,
+            // Irrelevant = low marks, however fluent the answer was.
+            Text("Relevance: \(ev.relevanceLabel)").font(.subheadline.bold())
+                .foregroundColor(ev.isRelevant ? .green : ev.isIrrelevant ? .red : .orange)
             HStack(spacing: 12) {
                 ScoreRing(label: "Overall", score: ev.overallScore, color: .blue)
                 ScoreRing(label: "Content", score: ev.contentScore, color: .green)
@@ -477,6 +545,7 @@ struct InterviewView: View {
         if store.mode == .mock { queue = Array(queue.prefix(5)) }
         started = true; answeredCount = 0; lastEvaluation = nil; showingResult = false
         heardNothing = false; awaitingRetry = false
+        sessionResults = []; showingSessionSummary = false
         showAnswer = store.showIdealBeforeAnswer
         speech.speechRate = Float(store.speechRate)
         speech.voiceIdentifier = store.selectedVoiceId
@@ -521,6 +590,14 @@ struct InterviewView: View {
         }
         store.add(ev)
         lastEvaluation = ev; showingResult = true; answeredCount += 1
+        // v1.8: one entry per question in the session total — a retry
+        // replaces the first attempt for that question, it does not
+        // add a second entry for the same question.
+        if let last = sessionResults.last, last.questionId == q.id {
+            sessionResults[sessionResults.count - 1] = ev
+        } else {
+            sessionResults.append(ev)
+        }
         // v1.2 correct-me loop, v1.6 auto-retry: ONE spoken script —
         // answer correction + body tips together — then, when the answer
         // was wrong, the same question is asked again AND the mic starts
@@ -553,7 +630,7 @@ struct InterviewView: View {
         if bodyService.isObserving { _ = bodyService.stop() }
         showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
-        if store.mode == .mock, answeredCount >= 5 { endSession(); return }
+        if store.mode == .mock, answeredCount >= 5 { showSessionSummary(); return }
         if index + 1 < queue.count { index += 1 } else { rebuildQueue(); index = 0 }
         if let q = current { speech.speak("Next question. \(q.question)") }
     }
@@ -568,9 +645,36 @@ struct InterviewView: View {
         awaitingRetry = false; heardNothing = false
         showAnswer = false
         if bodyService.isObserving { _ = bodyService.stop() }
+        // v1.8: ending with answers shows the total marks card;
+        // ending without answering just goes back to setup.
+        if !sessionResults.isEmpty {
+            showSessionSummary()
+            return
+        }
         started = false; showingResult = false; lastEvaluation = nil; lastBody = nil
         speech.liveTranscript = ""
         rebuildQueue()
+    }
+    /// v1.8: stop everything and show the session total marks card,
+    /// speaking the total out loud.
+    private func showSessionSummary() {
+        speech.stopSpeaking(); speech.stopListening()
+        awaitingRetry = false; heardNothing = false
+        showAnswer = false
+        if bodyService.isObserving { _ = bodyService.stop() }
+        started = false; showingResult = false; lastEvaluation = nil; lastBody = nil
+        speech.liveTranscript = ""
+        showingSessionSummary = true
+        speech.speak(sessionSummary.spokenSummary)
+    }
+    private func dismissSessionSummary() {
+        showingSessionSummary = false
+        sessionResults = []; answeredCount = 0
+        rebuildQueue()
+    }
+    private func startNewSession() {
+        dismissSessionSummary()
+        startSession()
     }
 }
 

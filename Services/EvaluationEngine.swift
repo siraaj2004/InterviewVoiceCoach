@@ -35,6 +35,12 @@ struct EvaluationEngine {
         if wordCount >= 20 { content += 15 }
         else if wordCount >= 10 { content += 8 }
         if wordCount < 5 { content = min(content, 25) }
+        // v1.8 relevance marks: a long fluent answer that says nothing
+        // about the question must NOT score on length alone. Content
+        // is capped by how much of the question it actually covers.
+        if coverage == 0 { content = min(content, 10) }
+        else if coverage < 0.34 { content = min(content, 35) }
+        else if coverage < 0.6 { content = min(content, 60) }
         content = max(0, min(100, content))
 
         // --- English score ---
@@ -78,12 +84,28 @@ struct EvaluationEngine {
         if tips.isEmpty { tips.append("Clear English — good pace, no fillers. Keep this style.") }
         english = max(0, min(100, english))
 
-        let overall = (content * 6 + english * 4) / 10
+        // v1.8 relevance marks: fluent English must not rescue an
+        // off-topic answer. A relevant answer keeps its full marks;
+        // an irrelevant one is capped low, however well spoken.
+        var overall = (content * 6 + english * 4) / 10
+        if coverage == 0 { overall = min(overall, 15) }
+        else if coverage < 0.34 { overall = min(overall, 40) }
+        else if coverage < 0.6 { overall = min(overall, 65) }
+        overall = max(0, min(100, overall))
+
         let verdict: String
-        switch overall { case 80...100: verdict = "Correct — well answered"
-        case 60..<80: verdict = "Partly correct — close, polish the missing points"
-        case 40..<60: verdict = "Needs correction — listen to the correct answer"
-        default: verdict = "Incorrect / too short — listen and try again" }
+        if coverage == 0 {
+            verdict = "Irrelevant — off-topic, no key ideas"
+            tips.insert("This answer was off-topic — it did not cover any key idea for this question. Listen to the correct answer, then try again using those ideas.", at: 0)
+        } else if coverage < 0.34 {
+            verdict = "Mostly irrelevant — missed the main point"
+            tips.insert("Your answer missed the main point — it covered only \(hit) of \(question.keywords.count) key ideas. Use the missing ideas from the correct answer.", at: 0)
+        } else {
+            switch overall { case 80...100: verdict = "Correct — well answered"
+            case 60..<80: verdict = "Partly correct — close, polish the missing points"
+            case 40..<60: verdict = "Needs correction — listen to the correct answer"
+            default: verdict = "Incorrect / too short — listen and try again" }
+        }
 
         // Voice correction script: spoken back to the user.
         let corrected = "The correct answer is: \(question.idealAnswer) \(question.tip)"
@@ -93,6 +115,7 @@ struct EvaluationEngine {
             contentScore: content, englishScore: english, overallScore: overall, verdict: verdict,
             missingKeywords: missing, fillerCount: fillerCount, wordsPerMinute: wpm,
             englishTips: tips, correctedAnswer: corrected,
+            keywordCoverage: coverage,
             bodyScore: nil, bodyPosture: nil, bodyEye: nil, bodyMovement: nil, bodyTips: nil
         )
     }

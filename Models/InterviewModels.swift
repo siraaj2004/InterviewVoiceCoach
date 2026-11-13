@@ -59,12 +59,35 @@ struct Evaluation: Codable, Identifiable {
     let wordsPerMinute: Int
     let englishTips: [String]
     let correctedAnswer: String
+    // v1.8: how much of the question the answer actually covered
+    // (0.0–1.0). Optional so history saved by v1.7 and earlier still
+    // decodes — those rows fall back to a content-score estimate.
+    var keywordCoverage: Double? = nil
     // Video body observation (v1.1, optional so v1.0 history still decodes).
     var bodyScore: Int?
     var bodyPosture: String?
     var bodyEye: String?
     var bodyMovement: String?
     var bodyTips: [String]?
+    /// v1.8 relevance: Relevant = most key ideas covered (high marks),
+    /// Partly relevant = some ideas, Mostly irrelevant = barely any,
+    /// Irrelevant = none of the key ideas at all (low marks).
+    var relevanceLabel: String {
+        let c: Double
+        if let stored = keywordCoverage { c = stored }
+        else if contentScore >= 70 { c = 0.7 }
+        else if contentScore >= 40 { c = 0.45 }
+        else if contentScore > 10 { c = 0.2 }
+        else { c = 0 }
+        switch c {
+        case 0.6...: return "Relevant"
+        case 0.34..<0.6: return "Partly relevant"
+        case 0.0001..<0.34: return "Mostly irrelevant"
+        default: return "Irrelevant"
+        }
+    }
+    var isRelevant: Bool { relevanceLabel == "Relevant" }
+    var isIrrelevant: Bool { relevanceLabel == "Irrelevant" || relevanceLabel == "Mostly irrelevant" }
     /// Attach a body-observation result to this evaluation.
     func withBody(_ result: BodyLanguageResult) -> Evaluation {
         var copy = self
@@ -86,7 +109,12 @@ struct Evaluation: Codable, Identifiable {
             }
             return good
         }
-        var script = "Your answer was \(verdict). \(correctedAnswer)"
+        // v1.8: say plainly when the answer was off-topic, then the
+        // correct answer — the spoken script must match the on-screen
+        // "Irrelevant" verdict.
+        var script = isIrrelevant
+            ? "That answer was off-topic. It did not cover the key ideas for this question. \(correctedAnswer)"
+            : "Your answer was \(verdict). \(correctedAnswer)"
         if let bs = bodyScore, bs < 70, let tips = bodyTips, !tips.isEmpty {
             script += " Body language: \(tips.prefix(2).joined(separator: " "))"
         }
@@ -391,5 +419,36 @@ struct QuestionBank {
     ]
     static func questions(for topic: Topic) -> [InterviewQuestion] {
         topic == .all ? all : all.filter { $0.topic == topic }
+    }
+}
+
+// MARK: - v1.8 session total marks
+/// Total marks for one finished session (Mock 5 Qs, Interview Prep,
+/// or any Practice run ended with End session): the average of the
+/// per-question marks, so a relevant answer counts high and an
+/// irrelevant one pulls the total down. One entry per question —
+/// a retry replaces the first attempt for that question.
+struct SessionSummary {
+    let evaluations: [Evaluation]
+    var count: Int { evaluations.count }
+    var totalPoints: Int { evaluations.map(\.overallScore).reduce(0, +) }
+    var maxPoints: Int { count * 100 }
+    var averageScore: Int {
+        guard count > 0 else { return 0 }
+        return totalPoints / count
+    }
+    var relevantCount: Int { evaluations.filter(\.isRelevant).count }
+    var partlyCount: Int { evaluations.filter { $0.relevanceLabel == "Partly relevant" }.count }
+    var irrelevantCount: Int { evaluations.filter(\.isIrrelevant).count }
+    var grade: String {
+        switch averageScore {
+        case 80...100: return "Interview ready — pass"
+        case 60..<80: return "Good — almost there"
+        case 40..<60: return "Needs work"
+        default: return "Needs practice"
+        }
+    }
+    var spokenSummary: String {
+        "Session complete. You scored \(averageScore) out of 100 across \(count) question\(count == 1 ? "" : "s"). \(relevantCount) relevant, \(partlyCount) partly relevant, \(irrelevantCount) off-topic. \(grade)."
     }
 }
